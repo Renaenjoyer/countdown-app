@@ -8,7 +8,7 @@ service cloud.firestore {
 
       // Anyone can create a new poll (this app has no login system).
       allow create: if request.resource.data.keys().hasAll(
-        ['title', 'durationSecs', 'endsAt', 'resultsRevealed', 'imageCount']
+        ['title', 'durationSecs', 'endsAt', 'resultsRevealed', 'imageCount', 'expireAt']
       );
 
       // Only allow flipping resultsRevealed from false -> true; nothing else
@@ -18,14 +18,19 @@ service cloud.firestore {
                     && resource.data.resultsRevealed == false
                     && request.resource.data.resultsRevealed == true;
 
-      allow delete: if false;
+      // No login system, so anyone with the poll ID can delete it (only the
+      // creator's UI exposes a delete button, but this isn't enforced server-side).
+      // A Firestore TTL policy on the `expireAt` field also auto-deletes polls
+      // ~1hr after creation — configured separately in the Firebase console,
+      // not by these rules.
+      allow delete: if true;
 
       match /images/{imageId} {
         allow read: if true;
 
         // Written as part of the poll-creation batch; no auth system here,
         // so just require it looks like a freshly-created image doc.
-        allow create: if request.resource.data.keys().hasAll(['url', 'votes', 'order'])
+        allow create: if request.resource.data.keys().hasAll(['url', 'votes', 'order', 'expireAt'])
                       && request.resource.data.votes == 0;
 
         // Voting: only allow the `votes` field to increase by exactly 1,
@@ -34,7 +39,7 @@ service cloud.firestore {
                       && request.resource.data.votes == resource.data.votes + 1
                       && request.time < get(/databases/$(database)/documents/polls/$(pollId)).data.endsAt;
 
-        allow delete: if false;
+        allow delete: if true;
       }
     }
   }
