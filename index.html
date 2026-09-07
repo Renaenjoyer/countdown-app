@@ -729,8 +729,6 @@
   <div style="display:flex;gap:.75rem;flex-wrap:wrap;justify-content:center">
     <button class="done-btn alt" id="va-reveal-btn" onclick="revealResults()">🔓 Reveal Results To Voters</button>
     <button class="done-btn" onclick="goSetup()">⚙ New Setup</button>
-    <button class="done-btn" style="border-color:var(--danger);background:rgba(255,68,102,.1);color:var(--danger)"
-      onclick="deletePoll()">🗑 Delete Poll</button>
   </div>
   <div style="font-size:.68rem;color:var(--text-dim);margin-top:1rem;max-width:420px">
     Polls (and their images) are deleted automatically about an hour after creation.
@@ -1547,27 +1545,6 @@ function revealResults() {
   db.collection('polls').doc(currentPollId).update({ resultsRevealed: true });
   document.getElementById('va-reveal-btn').textContent = '✅ Results Revealed';
   document.getElementById('va-reveal-btn').disabled = true;
-}
-
-async function deletePoll() {
-  if (!currentPollId || !db) return;
-  if (!confirm('Delete this poll and all its images? This cannot be undone.')) return;
-  const pollId  = currentPollId;
-  const pollRef = db.collection('polls').doc(pollId);
-  try {
-    const imagesSnap = await pollRef.collection('images').get();
-    const batch = db.batch();
-    imagesSnap.docs.forEach(d => batch.delete(d.ref));
-    batch.delete(pollRef);
-    await batch.commit();
-
-    const created = JSON.parse(localStorage.getItem('createdPolls') || '[]').filter(id => id !== pollId);
-    localStorage.setItem('createdPolls', JSON.stringify(created));
-
-    goSetup();
-  } catch (e) {
-    alert('Could not delete the poll: ' + e.message);
-  }
 }
 
 // ══════════════════════════════════════════

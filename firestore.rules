@@ -18,12 +18,12 @@ service cloud.firestore {
                     && resource.data.resultsRevealed == false
                     && request.resource.data.resultsRevealed == true;
 
-      // No login system, so anyone with the poll ID can delete it (only the
-      // creator's UI exposes a delete button, but this isn't enforced server-side).
-      // A Firestore TTL policy on the `expireAt` field also auto-deletes polls
-      // ~1hr after creation — configured separately in the Firebase console,
-      // not by these rules.
-      allow delete: if true;
+      // No manual delete from the app — a Firestore TTL policy on the
+      // `expireAt` field auto-deletes polls ~1hr after creation instead
+      // (configured separately in the Firebase console; TTL deletion is
+      // performed by Firestore's internal maintenance process and isn't
+      // subject to these rules).
+      allow delete: if false;
 
       match /images/{imageId} {
         allow read: if true;
@@ -39,7 +39,7 @@ service cloud.firestore {
                       && request.resource.data.votes == resource.data.votes + 1
                       && request.time < get(/databases/$(database)/documents/polls/$(pollId)).data.endsAt;
 
-        allow delete: if true;
+        allow delete: if false;
       }
     }
   }
