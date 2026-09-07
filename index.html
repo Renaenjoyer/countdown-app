@@ -677,9 +677,15 @@
     <!-- Image voting -->
     <div class="field-wrap">
       <div class="field-label">Image Voting <span style="opacity:.6;font-weight:400;text-transform:none;letter-spacing:0">— optional, uses the duration above</span></div>
-      <label class="file-lbl" for="vote-img-input" id="vote-img-lbl">
-        🖼 Click to choose 2+ images to vote on…
-      </label>
+      <div style="display:flex;gap:.5rem;align-items:center">
+        <label class="file-lbl" for="vote-img-input" id="vote-img-lbl" style="flex:1;margin:0">
+          🖼 Click to choose 2+ images to vote on…
+        </label>
+        <button id="vote-img-clear-btn" onclick="clearVoteImages()"
+          style="display:none;padding:.5rem .75rem;border-radius:10px;border:1px solid var(--border);
+                 background:var(--surface);color:var(--text-dim);cursor:pointer;font-size:.75rem;
+                 white-space:nowrap">✕ Remove</button>
+      </div>
       <input type="file" id="vote-img-input" accept="image/*" multiple style="display:none" onchange="onVoteImagesChosen(this)">
       <div id="vote-img-grid" style="display:none;grid-template-columns:repeat(auto-fill,minmax(60px,1fr));gap:.4rem;margin-top:.6rem"></div>
       <div id="voting-config-note" style="display:none;font-size:.7rem;color:var(--text-dim);background:rgba(255,68,102,.08);
@@ -1398,17 +1404,25 @@ function removeVoteImage(i) {
   renderVoteImageGrid();
 }
 
+function clearVoteImages() {
+  voteImages = [];
+  renderVoteImageGrid();
+}
+
 function renderVoteImageGrid() {
   const grid = document.getElementById('vote-img-grid');
   const lbl  = document.getElementById('vote-img-lbl');
+  const clearBtn = document.getElementById('vote-img-clear-btn');
   if (voteImages.length) {
     grid.style.display = 'grid';
     lbl.textContent = `🖼 ${voteImages.length} image${voteImages.length > 1 ? 's' : ''} selected — click to add more`;
     lbl.classList.add('loaded');
+    clearBtn.style.display = 'block';
   } else {
     grid.style.display = 'none';
     lbl.textContent = '🖼 Click to choose 2+ images to vote on…';
     lbl.classList.remove('loaded');
+    clearBtn.style.display = 'none';
   }
   grid.innerHTML = voteImages.map((im, i) => `
     <div style="position:relative">
