@@ -1,0 +1,41 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /polls/{pollId} {
+      // Anyone with the link can read the poll (title, timing, reveal flag).
+      allow read: if true;
+
+      // Anyone can create a new poll (this app has no login system).
+      allow create: if request.resource.data.keys().hasAll(
+        ['title', 'durationSecs', 'endsAt', 'resultsRevealed', 'imageCount']
+      );
+
+      // Only allow flipping resultsRevealed from false -> true; nothing else
+      // about the poll may change after creation.
+      allow update: if request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['resultsRevealed'])
+                    && resource.data.resultsRevealed == false
+                    && request.resource.data.resultsRevealed == true;
+
+      allow delete: if false;
+
+      match /images/{imageId} {
+        allow read: if true;
+
+        // Written as part of the poll-creation batch; no auth system here,
+        // so just require it looks like a freshly-created image doc.
+        allow create: if request.resource.data.keys().hasAll(['url', 'votes', 'order'])
+                      && request.resource.data.votes == 0;
+
+        // Voting: only allow the `votes` field to increase by exactly 1,
+        // and only while the poll's countdown hasn't ended yet.
+        allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['votes'])
+                      && request.resource.data.votes == resource.data.votes + 1
+                      && request.time < get(/databases/$(database)/documents/polls/$(pollId)).data.endsAt;
+
+        allow delete: if false;
+      }
+    }
+  }
+}

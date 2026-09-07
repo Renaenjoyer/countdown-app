@@ -1,0 +1,1721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>COUNTDOWN</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --accent:    #00d4ff;
+      --accent2:   #7b2fff;
+      --danger:    #ff4466;
+      --bg:        #06060f;
+      --surface:   rgba(255,255,255,0.03);
+      --border:    rgba(0,212,255,0.18);
+      --text:      #e0e8ff;
+      --text-dim:  rgba(224,232,255,0.45);
+      --glow-c:    rgba(0,212,255,0.25);
+      --glow-p:    rgba(123,47,255,0.18);
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, sans-serif;
+    }
+
+    /* ── Particle canvas ── */
+    #bg-canvas {
+      position: fixed; inset: 0;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    /* ── Background dim (shown when custom bg image is active) ── */
+    #bg-dim {
+      position: fixed; inset: 0; z-index: 1;
+      background: rgba(0,0,0,0.52);
+      display: none; pointer-events: none;
+    }
+
+    /* ── Grid overlay ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 2;
+      background-image:
+        linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+    }
+
+    /* ════════════════════════════════
+       SETUP SCREEN
+    ════════════════════════════════ */
+    #screen-setup {
+      position: fixed; inset: 0; z-index: 10;
+      display: flex; align-items: flex-start; justify-content: center;
+      padding: 1.5rem;
+      overflow-y: auto;
+      transition: opacity .4s, transform .4s;
+    }
+    #screen-setup.hidden { opacity: 0; pointer-events: none; transform: scale(.97); }
+
+    .card {
+      background: rgba(8,8,20,0.92);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 2.5rem 2.75rem;
+      width: min(500px, 100%);
+      max-height: calc(100vh - 3rem);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      margin: auto;
+      backdrop-filter: blur(24px);
+      box-shadow:
+        0 0 60px var(--glow-c),
+        0 0 120px var(--glow-p),
+        inset 0 1px 0 rgba(255,255,255,0.06);
+    }
+    .card::-webkit-scrollbar { width: 4px; }
+    .card::-webkit-scrollbar-track { background: transparent; }
+    .card::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .logo {
+      text-align: center;
+      margin-bottom: 2.25rem;
+    }
+    .logo h1 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 2rem; font-weight: 900;
+      letter-spacing: .5em; text-transform: uppercase;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .logo p {
+      margin-top: .4rem;
+      color: var(--text-dim); font-size: .72rem; letter-spacing: .18em; text-transform: uppercase;
+    }
+
+    .field-label {
+      font-size: .68rem; letter-spacing: .14em; text-transform: uppercase;
+      color: var(--accent); margin-bottom: .65rem;
+      display: flex; align-items: center; gap: .5rem;
+    }
+    .field-label::before { content: ''; width: 14px; height: 1px; background: var(--accent); }
+
+    /* Time inputs */
+    .time-row {
+      display: flex; align-items: flex-end; justify-content: center;
+      gap: .4rem; margin-bottom: 2rem;
+    }
+    .time-unit { display: flex; flex-direction: column; align-items: center; gap: .35rem; }
+    .time-unit input[type="number"] {
+      width: 78px; text-align: center;
+      font-family: 'Orbitron', monospace; font-size: 2rem; font-weight: 700;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      color: var(--text); padding: .5rem .4rem;
+      outline: none; appearance: textfield;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .time-unit input[type="number"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--glow-c);
+    }
+    .time-unit input[type="number"]::-webkit-inner-spin-button { display: none; }
+    .time-unit label { font-size: .62rem; letter-spacing: .1em; color: var(--text-dim); text-transform: uppercase; }
+    .time-sep { font-size: 2rem; font-weight: 700; color: var(--accent2); opacity: .55; padding-bottom: 1.4rem; }
+
+    /* Title input */
+    .field-wrap { margin-bottom: 1.5rem; }
+    .text-input {
+      width: 100%; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; color: var(--text);
+      padding: .7rem 1rem; font-size: .9rem; font-weight: 600; letter-spacing: .04em;
+      outline: none; transition: border-color .2s, box-shadow .2s;
+    }
+    .text-input::placeholder { color: var(--text-dim); font-weight: 400; }
+    .text-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--glow-c); }
+
+    /* Source toggle */
+    .source-toggle {
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 3px; gap: 3px;
+      margin-bottom: 1rem;
+    }
+    .src-btn {
+      padding: .55rem .5rem; border: none; border-radius: 9px;
+      background: transparent; color: var(--text-dim);
+      font-size: .8rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: .3rem;
+      transition: all .2s; white-space: nowrap;
+    }
+    .src-btn.active {
+      background: linear-gradient(135deg, rgba(0,212,255,.18), rgba(123,47,255,.18));
+      color: var(--text); border: 1px solid var(--border);
+    }
+    .src-btn:hover:not(.active) { color: var(--text); }
+
+    .src-panel { display: none; margin-bottom: 1.25rem; }
+    .src-panel.show { display: block; }
+
+    .file-lbl {
+      display: block; width: 100%;
+      background: var(--surface); border: 1px dashed var(--border); border-radius: 12px;
+      padding: .7rem 1rem; font-size: .85rem; color: var(--text-dim);
+      cursor: pointer; text-align: center; transition: all .2s;
+    }
+    .file-lbl:hover { border-color: var(--accent); color: var(--text); }
+    .file-lbl.loaded { border-style: solid; border-color: var(--accent); color: var(--text); }
+    #file-input { display: none; }
+
+    /* Loop toggle */
+    .loop-row { margin-bottom: 1.25rem; }
+    .loop-label {
+      display: flex; align-items: center; gap: .65rem;
+      font-size: .82rem; color: var(--text-dim); cursor: pointer; user-select: none;
+    }
+    .loop-label input[type="checkbox"] { display: none; }
+    .loop-track {
+      width: 34px; height: 18px; border-radius: 9px;
+      background: var(--surface); border: 1px solid var(--border);
+      position: relative; flex-shrink: 0; transition: background .2s, border-color .2s;
+    }
+    .loop-knob {
+      position: absolute; top: 2px; left: 2px;
+      width: 12px; height: 12px; border-radius: 50%;
+      background: var(--text-dim); transition: transform .2s, background .2s;
+    }
+    .loop-label input:checked ~ .loop-track { background: rgba(0,212,255,.2); border-color: var(--accent); }
+    .loop-label input:checked ~ .loop-track .loop-knob { transform: translateX(16px); background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+    .loop-label:hover { color: var(--text); }
+
+    /* Volume */
+    .vol-row { display: flex; align-items: center; gap: .75rem; margin-bottom: 1.5rem; }
+    .vol-icon { font-size: .95rem; }
+    .vol-label { font-size: .8rem; color: var(--text-dim); min-width: 2.5rem; text-align: right; }
+
+    input[type="range"] {
+      -webkit-appearance: none; appearance: none;
+      flex: 1; height: 4px; border-radius: 2px;
+      background: var(--border); outline: none; cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 15px; height: 15px; border-radius: 50%;
+      background: var(--accent); box-shadow: 0 0 8px var(--accent);
+    }
+
+    /* Resume button */
+    .resume-btn {
+      display: none; width: 100%; padding: .8rem; border-radius: 14px;
+      border: 1px solid var(--accent); background: rgba(0,212,255,.1);
+      color: var(--accent); font-family: 'Orbitron', sans-serif;
+      font-size: .82rem; font-weight: 700; letter-spacing: .18em; text-transform: uppercase;
+      cursor: pointer; transition: all .2s; margin-bottom: .6rem;
+    }
+    .resume-btn:hover { background: rgba(0,212,255,.2); box-shadow: 0 0 20px var(--glow-c); }
+    .resume-btn.show { display: block; }
+
+    /* Start button */
+    .start-btn {
+      width: 100%; padding: .95rem; border: none; border-radius: 14px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff; font-family: 'Orbitron', sans-serif;
+      font-size: .88rem; font-weight: 700; letter-spacing: .22em; text-transform: uppercase;
+      cursor: pointer; transition: all .3s; position: relative; overflow: hidden;
+    }
+    .start-btn::before {
+      content: ''; position: absolute; inset: 0;
+      background: rgba(255,255,255,.12); transform: scaleX(0); transform-origin: left;
+      transition: transform .35s;
+    }
+    .start-btn:hover::before { transform: scaleX(1); }
+    .start-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 36px rgba(0,212,255,.35); }
+    .start-btn:active { transform: translateY(0); }
+
+    /* ════════════════════════════════
+       COUNTDOWN SCREEN
+    ════════════════════════════════ */
+    #screen-countdown {
+      position: fixed; inset: 0; z-index: 10;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity .4s, transform .4s;
+      transform: scale(1.02);
+      padding: 1.5rem 1rem;
+      overflow-y: auto;
+    }
+    #screen-countdown.show { opacity: 1; pointer-events: all; transform: scale(1); }
+
+    .cd-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: clamp(1.1rem, 3.5vw, 1.8rem); font-weight: 900; letter-spacing: .3em; text-transform: uppercase;
+      color: var(--text); margin-bottom: clamp(1rem, 4vh, 2.2rem);
+      text-shadow: 0 0 30px rgba(0,212,255,.35);
+      text-align: center;
+      max-width: 90vw;
+      flex-shrink: 0;
+    }
+
+    /* SVG ring */
+    .ring-wrap {
+      position: relative;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: clamp(1.25rem, 4vh, 2.75rem);
+      flex-shrink: 0;
+    }
+    .ring-svg {
+      width: min(320px, 42vmin);
+      height: min(320px, 42vmin);
+      transform: none;
+      filter: drop-shadow(0 0 18px rgba(0,212,255,.5)) drop-shadow(0 0 40px rgba(123,47,255,.3));
+    }
+    .ring-bg { fill: none; stroke: rgba(255,255,255,.05); stroke-width: 9; }
+    .ring-fg {
+      fill: none; stroke: url(#grad); stroke-width: 9; stroke-linecap: round;
+      transition: stroke-dashoffset .65s cubic-bezier(.4,0,.2,1);
+    }
+    .ring-warn { stroke: var(--danger) !important; filter: drop-shadow(0 0 12px var(--danger)); }
+
+    .ring-inner {
+      position: absolute;
+      text-align: center; pointer-events: none;
+    }
+    .time-big {
+      font-family: 'Orbitron', monospace; font-size: clamp(2.2rem, 9vmin, 5.5rem);
+      font-weight: 900; letter-spacing: -.02em; line-height: 1;
+      white-space: nowrap;
+      background: linear-gradient(170deg, #fff 20%, var(--accent) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      transition: color .3s;
+      font-variant-numeric: tabular-nums;
+    }
+    .time-big.warn {
+      background: linear-gradient(170deg, #fff 20%, var(--danger) 100%);
+      -webkit-background-clip: text; background-clip: text;
+    }
+    .pct-label {
+      margin-top: .5rem; font-size: .68rem; letter-spacing: .18em;
+      color: var(--text-dim); text-transform: uppercase;
+    }
+
+    /* Controls */
+    .ctrl-row { display: flex; align-items: center; gap: 1rem; }
+    .ctrl-btn {
+      width: 52px; height: 52px; border-radius: 50%;
+      border: 1px solid var(--border); background: rgba(255,255,255,.03);
+      color: var(--text); font-size: 1.15rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      backdrop-filter: blur(10px); transition: all .2s;
+    }
+    .ctrl-btn:hover { border-color: var(--accent); box-shadow: 0 0 20px var(--glow-c); transform: scale(1.07); }
+    .ctrl-btn.big {
+      width: 66px; height: 66px; font-size: 1.55rem;
+      border-color: var(--accent);
+      background: linear-gradient(135deg, rgba(0,212,255,.15), rgba(123,47,255,.15));
+      box-shadow: 0 0 20px var(--glow-c);
+    }
+
+    /* Floating volume */
+    .float-vol {
+      position: fixed; bottom: 1.75rem; right: 1.75rem; z-index: 20;
+      display: flex; align-items: center; gap: .5rem;
+      opacity: .4; transition: opacity .2s;
+    }
+    .float-vol:hover { opacity: 1; }
+    .float-vol input[type="range"] { width: 90px; }
+    .float-vol span { font-size: .85rem; }
+
+    /* Back link */
+    .back-lnk {
+      position: fixed; top: 1.5rem; left: 1.5rem; z-index: 20;
+      background: rgba(255,255,255,.04); border: 1px solid var(--border);
+      border-radius: 10px; color: var(--text-dim);
+      padding: .45rem .9rem; font-size: .78rem; cursor: pointer;
+      backdrop-filter: blur(10px); transition: all .2s;
+    }
+    .back-lnk:hover { color: var(--text); border-color: var(--accent); }
+
+    /* Fullscreen button — lives at the top level (not inside a screen)
+       so it stays reachable above the done overlay when time's up */
+    #fullscreen-btn {
+      position: fixed; bottom: 1.75rem; left: 1.75rem; z-index: 40;
+      width: 36px; height: 36px; border-radius: 10px;
+      border: 1px solid var(--border); background: rgba(255,255,255,.04);
+      color: var(--text-dim); font-size: 1rem; cursor: pointer;
+      display: none; align-items: center; justify-content: center;
+      backdrop-filter: blur(10px); transition: all .2s; opacity: .4;
+    }
+    #fullscreen-btn.show { display: flex; }
+    #fullscreen-btn:hover { border-color: var(--accent); color: var(--text); opacity: 1; }
+
+    /* Prominent state while the "time's up" overlay is showing */
+    #fullscreen-btn.prominent {
+      width: 56px; height: 56px; font-size: 1.5rem;
+      opacity: 1; border: 1px solid var(--accent); color: var(--accent);
+      background: linear-gradient(135deg, rgba(0,212,255,.18), rgba(123,47,255,.18));
+      box-shadow: 0 0 20px var(--glow-c), 0 0 40px var(--glow-p);
+      animation: glow-pulse 1.2s ease-in-out infinite alternate;
+    }
+
+    /* Music badge */
+    .music-badge {
+      position: fixed; top: 1.5rem; right: 1.5rem; z-index: 20;
+      background: rgba(255,255,255,.04); border: 1px solid var(--border);
+      border-radius: 30px; color: var(--text-dim);
+      padding: .35rem .9rem; font-size: .75rem; letter-spacing: .06em;
+      backdrop-filter: blur(10px);
+      display: flex; align-items: center; gap: .4rem;
+    }
+    .music-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--accent); box-shadow: 0 0 6px var(--accent);
+      animation: blink 1.4s ease-in-out infinite;
+    }
+    @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: .2; } }
+
+    /* ── Playlist prev/next ── */
+    #playlist-ctrl {
+      position: fixed; bottom: 5.5rem; left: 1.5rem; z-index: 25;
+      display: none; align-items: center; gap: .5rem;
+    }
+    #playlist-ctrl.show { display: flex; }
+    .pl-btn {
+      width: 36px; height: 36px; border-radius: 10px;
+      border: 1px solid var(--border); background: rgba(255,255,255,.04);
+      color: var(--text-dim); font-size: .9rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      backdrop-filter: blur(10px); transition: all .2s;
+    }
+    .pl-btn:hover { border-color: var(--accent); color: var(--text); }
+    #pl-track-lbl { font-size: .7rem; color: var(--text-dim); max-width: 120px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* ════════════════════════════════
+       DONE OVERLAY
+    ════════════════════════════════ */
+    #done-overlay {
+      position: fixed; inset: 0; z-index: 30;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: rgba(6,6,15,.96); text-align: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity .5s;
+    }
+    #done-overlay.show { opacity: 1; pointer-events: all; }
+
+    .done-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: clamp(2.5rem, 8vw, 4.5rem); font-weight: 900; letter-spacing: .08em;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      animation: glow-pulse 1.2s ease-in-out infinite alternate;
+    }
+    @keyframes glow-pulse {
+      from { filter: brightness(1) drop-shadow(0 0 10px rgba(0,212,255,.4)); }
+      to   { filter: brightness(1.4) drop-shadow(0 0 30px rgba(0,212,255,.7)); }
+    }
+    .done-sub { color: var(--text-dim); margin-top: .75rem; letter-spacing: .25em; font-size: .85rem; }
+    .done-actions { margin-top: 2.25rem; display: flex; gap: .75rem; flex-wrap: wrap; justify-content: center; }
+    .done-btn {
+      padding: .7rem 1.75rem; border-radius: 12px; font-size: .85rem;
+      letter-spacing: .1em; cursor: pointer; transition: all .2s;
+      border: 1px solid var(--accent); background: rgba(0,212,255,.1); color: var(--accent);
+    }
+    .done-btn:hover { background: rgba(0,212,255,.22); box-shadow: 0 0 20px var(--glow-c); }
+    .done-btn.alt {
+      border-color: var(--accent2); background: rgba(123,47,255,.1); color: var(--accent2);
+    }
+    .done-btn.alt:hover { background: rgba(123,47,255,.22); box-shadow: 0 0 20px var(--glow-p); }
+
+    /* ── YouTube visible mini-player widget ── */
+    #yt-widget {
+      position: fixed; bottom: 5.5rem; right: 1.5rem; z-index: 25;
+      display: none; flex-direction: column;
+      border-radius: 12px; overflow: hidden;
+      border: 1px solid var(--border);
+      background: rgba(6,6,15,.97);
+      box-shadow: 0 8px 32px rgba(0,0,0,.55), 0 0 0 1px rgba(0,212,255,.06);
+      backdrop-filter: blur(16px);
+    }
+    #yt-widget.show { display: flex; }
+    .yt-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: .3rem .65rem;
+      font-size: .65rem; color: var(--text-dim); letter-spacing: .08em;
+      border-bottom: 1px solid rgba(255,255,255,.04);
+    }
+    .yt-bar-btns { display: flex; gap: .2rem; }
+    .yt-bar-btn {
+      background: none; border: none; color: var(--text-dim);
+      cursor: pointer; font-size: .82rem; padding: 0 .25rem; line-height: 1;
+      transition: color .15s;
+    }
+    .yt-bar-btn:hover { color: var(--text); }
+    #yt-body { width: 240px; overflow: hidden; transition: max-height .2s ease; max-height: 200px; }
+
+
+    /* Theme swatches */
+    .theme-row { display: flex; gap: .5rem; flex-wrap: wrap; }
+    .theme-swatch {
+      display: inline-block;
+      width: 36px; height: 36px; border-radius: 50%;
+      border: 2px solid transparent; cursor: pointer;
+      transition: all .2s; outline: none;
+    }
+    .theme-swatch:hover { transform: scale(1.15); }
+    .theme-swatch.active { border-color: var(--text); box-shadow: 0 0 0 2px var(--accent); }
+
+    .custom-swatch {
+      position: relative; overflow: hidden;
+      background: conic-gradient(from 0deg, #ff4466, #ff9f43, #ffe45e, #00e5a0, #00d4ff, #7b2fff, #ff4466);
+    }
+    .custom-swatch input[type="color"] {
+      position: absolute; inset: -4px; width: calc(100% + 8px); height: calc(100% + 8px);
+      opacity: 0; cursor: pointer; border: none; padding: 0;
+    }
+
+    /* ── Scroll number inputs up/down arrows ── */
+    .num-arrows { display: flex; gap: 3px; margin-top: .2rem; }
+    .num-arrow {
+      width: 36px; height: 22px; border: 1px solid var(--border);
+      border-radius: 6px; background: var(--surface); color: var(--text-dim);
+      font-size: .85rem; cursor: pointer; transition: all .15s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .num-arrow:hover { border-color: var(--accent); color: var(--text); }
+
+    /* ── Image voting ── */
+    .vote-thumb { transition: transform .15s, border-color .15s; }
+    .vote-thumb.clickable:hover { transform: scale(1.03); border-color: var(--accent) !important; }
+
+    /* Responsive */
+    @media (max-width: 480px) {
+      .card { padding: 2rem 1.5rem; }
+      .time-unit input[type="number"] { width: 62px; font-size: 1.6rem; }
+    }
+
+    /* Short/low-resolution viewports: shrink the countdown UI so nothing
+       gets clipped or forced onto an extra row */
+    @media (max-height: 700px) {
+      .ring-svg { width: min(220px, 34vmin); height: min(220px, 34vmin); }
+      .cd-title { margin-bottom: 1rem; }
+      .ring-wrap { margin-bottom: 1.25rem; }
+      .time-big { font-size: clamp(1.8rem, 8vmin, 3.6rem); }
+      .ctrl-btn { width: 44px; height: 44px; font-size: 1rem; }
+      .ctrl-btn.big { width: 56px; height: 56px; font-size: 1.3rem; }
+    }
+  </style>
+</head>
+<body>
+
+<script>
+  // Hide the setup screen immediately (before the Firebase SDK even loads)
+  // when arriving via a voting link, so it doesn't flash before enterVoterMode() runs.
+  if (new URLSearchParams(location.search).get('poll')) {
+    document.write('<style>#screen-setup{display:none!important}</style>');
+  }
+</script>
+
+<div id="bg-img" style="position:fixed;inset:0;z-index:0;background-size:cover;background-position:center;background-repeat:no-repeat;display:none"></div>
+<div id="bg-dim"></div>
+<canvas id="bg-canvas"></canvas>
+
+<!-- YouTube mini-player widget (shown during countdown) -->
+<div id="yt-widget">
+  <div class="yt-bar">
+    <span>▶ YOUTUBE</span>
+    <button class="yt-bar-btn" id="yt-collapse-btn" onclick="toggleYtCollapse()" title="Minimise">▼</button>
+  </div>
+  <div id="yt-body"></div>
+</div>
+
+<!-- ═══════════════════════════════
+     SETUP SCREEN
+═══════════════════════════════ -->
+<div id="screen-setup">
+  <div class="card">
+
+    <div class="logo">
+      <h1>COUNTDOWN</h1>
+      <p>Configure your session</p>
+    </div>
+
+    <!-- Display title -->
+    <div class="field-wrap">
+      <div class="field-label">Display Title</div>
+      <input class="text-input" id="inp-title" type="text" maxlength="42"
+             placeholder="Starting Soon…  /  BRB  /  Break Time…">
+    </div>
+
+    <!-- Duration -->
+    <div class="field-wrap">
+      <div class="field-label">Duration</div>
+      <div class="time-row">
+        <div class="time-unit">
+          <input type="number" id="inp-h" min="0" max="23" value="0">
+          <label>HH</label>
+          <div class="num-arrows">
+            <button class="num-arrow" onclick="nudge('inp-h',-1)">−</button>
+            <button class="num-arrow" onclick="nudge('inp-h', 1)">+</button>
+          </div>
+        </div>
+        <span class="time-sep">:</span>
+        <div class="time-unit">
+          <input type="number" id="inp-m" min="0" max="59" value="5">
+          <label>MM</label>
+          <div class="num-arrows">
+            <button class="num-arrow" onclick="nudge('inp-m',-1)">−</button>
+            <button class="num-arrow" onclick="nudge('inp-m', 1)">+</button>
+          </div>
+        </div>
+        <span class="time-sep">:</span>
+        <div class="time-unit">
+          <input type="number" id="inp-s" min="0" max="59" value="0">
+          <label>SS</label>
+          <div class="num-arrows">
+            <button class="num-arrow" onclick="nudge('inp-s',-1)">−</button>
+            <button class="num-arrow" onclick="nudge('inp-s', 1)">+</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Music source -->
+    <div class="field-wrap">
+      <div class="field-label">Music Source</div>
+      <div class="source-toggle">
+        <button class="src-btn active" id="src-none"     onclick="setSource('none')">🔇 None</button>
+        <button class="src-btn"        id="src-youtube"  onclick="setSource('youtube')">▶ YouTube</button>
+        <button class="src-btn"        id="src-file"     onclick="setSource('file')">🎵 Local File</button>
+      </div>
+
+      <div class="src-panel" id="panel-youtube">
+        <input class="text-input" id="yt-url" type="text"
+               placeholder="Paste YouTube video URL or ID…"
+               style="font-weight:400;">
+        <div style="margin-top:.55rem;font-size:.72rem;color:var(--text-dim);line-height:1.5;padding:0 .2rem">
+          YouTube opens in a separate window — browser security prevents embedding it directly.
+        </div>
+      </div>
+
+      <div class="src-panel" id="panel-file">
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <label class="file-lbl" for="file-input" id="file-lbl" style="flex:1;margin:0">
+            📂 Click to choose audio files (mp3, flac, ogg…)
+          </label>
+          <button id="file-add-btn" onclick="document.getElementById('file-input-add').click()"
+            style="display:none;padding:.5rem .75rem;border-radius:10px;border:1px solid var(--border);
+                   background:var(--surface);color:var(--text-dim);cursor:pointer;font-size:.75rem;
+                   white-space:nowrap">+ Add</button>
+        </div>
+        <input type="file" id="file-input" accept="audio/*" multiple onchange="onFileChosen(this)">
+        <input type="file" id="file-input-add" accept="audio/*" multiple style="display:none" onchange="onFilesAdded(this)">
+        <div id="file-list" style="margin-top:.5rem;font-size:.72rem;color:var(--text-dim);max-height:80px;overflow-y:auto;line-height:1.7"></div>
+      </div>
+
+    </div>
+
+    <!-- Loop toggle -->
+    <div class="loop-row">
+      <label class="loop-label">
+        <input type="checkbox" id="loop-chk" checked>
+        <span class="loop-track"><span class="loop-knob"></span></span>
+        Loop audio
+      </label>
+    </div>
+
+    <!-- Volume -->
+    <div class="field-label">Volume</div>
+    <div class="vol-row" style="margin-bottom:1.75rem">
+      <span class="vol-icon">🔊</span>
+      <input type="range" id="vol-setup" min="0" max="100" value="70"
+             oninput="syncVolume(this.value,'vol-setup-lbl')">
+      <span class="vol-label" id="vol-setup-lbl">70%</span>
+    </div>
+
+    <!-- Theme -->
+    <div class="field-wrap">
+      <div class="field-label">Theme</div>
+      <div class="theme-row" id="theme-row">
+        <button class="theme-swatch active" data-theme="default"   onclick="applyTheme('default')"   title="Default"   style="background:linear-gradient(135deg,#00d4ff,#7b2fff)"></button>
+        <button class="theme-swatch"        data-theme="midnight"  onclick="applyTheme('midnight')"  title="Midnight"  style="background:linear-gradient(135deg,#ff79c6,#bd93f9)"></button>
+        <button class="theme-swatch"        data-theme="ember"     onclick="applyTheme('ember')"     title="Ember"     style="background:linear-gradient(135deg,#ff9f43,#ff6b6b)"></button>
+        <button class="theme-swatch"        data-theme="forest"    onclick="applyTheme('forest')"    title="Forest"    style="background:linear-gradient(135deg,#00e5a0,#00b4d8)"></button>
+        <button class="theme-swatch"        data-theme="mono"      onclick="applyTheme('mono')"      title="Mono"      style="background:linear-gradient(135deg,#ffffff,#888888)"></button>
+        <label class="theme-swatch custom-swatch" data-theme="custom" id="theme-custom-swatch" title="Custom background colour">
+          <input type="color" id="custom-bg-input" value="#06060f" oninput="applyCustomBg(this.value)">
+        </label>
+      </div>
+    </div>
+
+    <!-- Background image -->
+    <div class="field-wrap">
+      <div class="field-label">Background Image</div>
+      <div style="display:flex;gap:.5rem;align-items:center">
+        <label class="file-lbl" for="bg-input" id="bg-lbl" style="flex:1;margin:0">
+          🖼 Click to choose an image…
+        </label>
+        <button id="bg-clear-btn" onclick="clearBgImage()"
+          style="display:none;padding:.5rem .75rem;border-radius:10px;border:1px solid var(--border);
+                 background:var(--surface);color:var(--text-dim);cursor:pointer;font-size:.75rem;
+                 white-space:nowrap">✕ Clear</button>
+      </div>
+      <input type="file" id="bg-input" accept="image/*" style="display:none" onchange="onBgImageChosen(this)">
+      <img id="bg-preview" style="display:none;width:100%;height:80px;object-fit:cover;border-radius:10px;margin-top:.5rem;border:1px solid var(--border)">
+    </div>
+
+    <!-- Image voting -->
+    <div class="field-wrap">
+      <div class="field-label">Image Voting <span style="opacity:.6;font-weight:400;text-transform:none;letter-spacing:0">— optional, uses the duration above</span></div>
+      <label class="file-lbl" for="vote-img-input" id="vote-img-lbl">
+        🖼 Click to choose 2+ images to vote on…
+      </label>
+      <input type="file" id="vote-img-input" accept="image/*" multiple style="display:none" onchange="onVoteImagesChosen(this)">
+      <div id="vote-img-grid" style="display:none;grid-template-columns:repeat(auto-fill,minmax(60px,1fr));gap:.4rem;margin-top:.6rem"></div>
+      <div id="voting-config-note" style="display:none;font-size:.7rem;color:var(--text-dim);background:rgba(255,68,102,.08);
+           border:1px solid rgba(255,68,102,.25);border-radius:8px;padding:.5rem .7rem;margin-top:.6rem;line-height:1.5">
+        ⚠ Voting isn't connected to a backend yet — set <code>FIREBASE_CONFIG</code> near the top of the &lt;script&gt; tag in index.html.
+      </div>
+      <button class="start-btn" id="start-vote-btn" onclick="startVoting()"
+        style="display:none;margin-top:.75rem;background:linear-gradient(135deg,var(--accent2),var(--danger))">🗳 START VOTING</button>
+    </div>
+
+    <button class="resume-btn" id="resume-btn" onclick="resumeCountdown()">▶ RESUME COUNTDOWN</button>
+    <button class="start-btn" id="start-btn" onclick="startCountdown()">START COUNTDOWN</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════
+     VOTE ADMIN SCREEN (creator's live dashboard)
+═══════════════════════════════ -->
+<div id="screen-vote-admin" style="position:fixed;inset:0;z-index:10;display:none;flex-direction:column;
+     align-items:center;justify-content:center;padding:1.5rem 1rem;overflow-y:auto;text-align:center">
+  <div class="cd-title" id="va-title-lbl">VOTE</div>
+  <div class="ring-wrap" id="va-ring-wrap"></div>
+
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;
+       padding:1rem 1.25rem;max-width:420px;width:100%;margin-bottom:1.25rem">
+    <div style="font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.5rem">
+      Share this link to vote
+    </div>
+    <div style="display:flex;gap:.5rem">
+      <input id="va-link" readonly onclick="this.select()"
+        style="flex:1;min-width:0;background:rgba(255,255,255,.04);border:1px solid var(--border);
+               border-radius:8px;color:var(--text);padding:.5rem .7rem;font-size:.76rem">
+      <button onclick="copyVoteLink()" id="va-copy-btn"
+        style="padding:.5rem .8rem;border-radius:8px;border:1px solid var(--accent);background:rgba(0,212,255,.1);
+               color:var(--accent);cursor:pointer;font-size:.78rem;white-space:nowrap">Copy</button>
+    </div>
+  </div>
+
+  <div id="va-tally" style="width:100%;max-width:420px;margin-bottom:1.5rem"></div>
+
+  <div style="display:flex;gap:.75rem;flex-wrap:wrap;justify-content:center">
+    <button class="done-btn alt" id="va-reveal-btn" onclick="revealResults()">🔓 Reveal Results To Voters</button>
+    <button class="done-btn" onclick="goSetup()">⚙ New Setup</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════
+     VOTER SCREEN (opened via ?poll=ID link)
+═══════════════════════════════ -->
+<div id="screen-vote" style="position:fixed;inset:0;z-index:10;display:none;flex-direction:column;
+     align-items:center;justify-content:center;padding:1.5rem 1rem;overflow-y:auto;text-align:center">
+  <div class="cd-title" id="v-title-lbl">VOTE</div>
+  <div class="ring-wrap" id="v-ring-wrap"></div>
+  <div id="v-status" style="font-size:.8rem;color:var(--text-dim);margin-bottom:1.25rem;letter-spacing:.04em"></div>
+  <div id="v-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.85rem;max-width:720px;width:100%"></div>
+</div>
+
+<!-- ═══════════════════════════════
+     COUNTDOWN SCREEN
+═══════════════════════════════ -->
+<div id="screen-countdown">
+
+  <div class="cd-title" id="cd-title-lbl">COUNTDOWN</div>
+
+  <div class="ring-wrap">
+    <svg class="ring-svg" id="ring-svg"
+         width="320" height="320" viewBox="0 0 320 320">
+      <defs>
+        <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%"   stop-color="#00d4ff"/>
+          <stop offset="100%" stop-color="#7b2fff"/>
+        </linearGradient>
+      </defs>
+      <circle class="ring-bg" cx="160" cy="160" r="140"/>
+      <path class="ring-fg" id="ring-fg" d="M 160 20 A 140 140 0 0 0 160 300 A 140 140 0 0 0 160 20"/>
+    </svg>
+    <div class="ring-inner">
+      <div class="time-big" id="time-big">00:00</div>
+      <div class="pct-label" id="pct-lbl">100%</div>
+    </div>
+  </div>
+
+  <div class="ctrl-row">
+    <button class="ctrl-btn"     onclick="doReset()"    title="Reset">↺</button>
+    <button class="ctrl-btn big" id="play-btn" onclick="togglePause()">⏸</button>
+    <button class="ctrl-btn"     onclick="promptSettings()"    title="Settings">⚙</button>
+  </div>
+
+  <div class="float-vol">
+    <span>🔊</span>
+    <input type="range" id="vol-cd" min="0" max="100" value="70"
+           oninput="syncVolume(this.value,'vol-cd-lbl')">
+    <span id="vol-cd-lbl" style="font-size:.75rem;color:var(--text-dim)">70%</span>
+  </div>
+
+  <button class="back-lnk" onclick="promptSettings()">← Setup</button>
+
+  <div class="music-badge" id="music-badge" style="display:none">
+    <span class="music-dot"></span>
+    <span id="music-badge-lbl">Music</span>
+  </div>
+
+  <div id="playlist-ctrl">
+    <button class="pl-btn" onclick="playPrev()" title="Previous">⏮</button>
+    <span id="pl-track-lbl"></span>
+    <button class="pl-btn" onclick="playNext()" title="Next">⏭</button>
+  </div>
+</div>
+
+<!-- Fullscreen toggle — top-level so it stays above the done overlay -->
+<button id="fullscreen-btn" onclick="toggleFullscreen()" title="Fullscreen">⛶</button>
+
+<!-- ═══════════════════════════════
+     DONE OVERLAY
+═══════════════════════════════ -->
+<div id="done-overlay">
+  <div class="done-title">TIME'S UP</div>
+  <div class="done-sub">COUNTDOWN COMPLETE</div>
+  <div class="done-actions">
+    <button class="done-btn"     onclick="doRestart()">↺ RESTART</button>
+    <button class="done-btn alt" onclick="goSetup()">⚙ NEW SETUP</button>
+  </div>
+</div>
+
+
+
+<!-- Firebase (compat build) — powers the Image Voting feature's cross-device sync.
+     Configure FIREBASE_CONFIG near the top of the script below to enable it. -->
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+
+<script>
+// ══════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════
+let totalSecs    = 0;
+let remaining    = 0;
+let ticker       = null;
+let paused       = false;
+let source       = 'none';
+let volume       = 70;
+let loopEnabled  = true;
+let audioEl      = null;
+let audioBlob    = null;
+let audioFiles   = [];   // all loaded files
+let audioIndex   = 0;    // current track index
+let particleHues = [196, 272];
+
+// ══════════════════════════════════════════
+//  IMAGE VOTING — Firebase config
+//  Fill this in with the config object from your Firebase project
+//  (Project settings → Your apps → SDK setup and configuration).
+//  It's safe for this to be public — access is controlled by Firestore
+//  security rules, not by keeping this value secret.
+// ══════════════════════════════════════════
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAwF_VOaNM505KYTJ_ljMfGulMII7Hhrdo",
+  authDomain: "countdown-3d93f.firebaseapp.com",
+  projectId: "countdown-3d93f",
+  storageBucket: "countdown-3d93f.firebasestorage.app",
+  messagingSenderId: "657863658331",
+  appId: "1:657863658331:web:ea69e12f2e3675d133287e",
+};
+
+let db            = null;
+let voteImages    = [];   // { dataUrl } staged locally before "Start Voting"
+let voterImages   = [];   // images loaded for the voter/admin view, with live vote counts
+let currentPollId = null;
+let hasVoted       = null; // image id this browser voted for, or null
+let voteLocked     = false;
+let voteTicker     = null;
+let pollUnsub      = null;
+let imagesUnsub    = null;
+
+function firebaseReady() {
+  if (db) return true;
+  if (typeof firebase === 'undefined') return false;
+  if (!FIREBASE_CONFIG.apiKey || FIREBASE_CONFIG.apiKey === 'REPLACE_ME') return false;
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.firestore();
+    return true;
+  } catch (e) {
+    console.error('Firebase init failed:', e);
+    return false;
+  }
+}
+
+// ══════════════════════════════════════════
+//  BACKGROUND PARTICLES
+// ══════════════════════════════════════════
+const cvs = document.getElementById('bg-canvas');
+const cx  = cvs.getContext('2d');
+let pts = [];
+
+function resizeCvs() {
+  cvs.width  = window.innerWidth;
+  cvs.height = window.innerHeight;
+}
+
+function mkParticles() {
+  pts = [];
+  const n = Math.min(160, Math.round(cvs.width * cvs.height / 8000));
+  for (let i = 0; i < n; i++) {
+    pts.push({
+      x:  Math.random() * cvs.width,
+      y:  Math.random() * cvs.height,
+      r:  Math.random() * 1.4 + .3,
+      vx: (Math.random() - .5) * .25,
+      vy: (Math.random() - .5) * .25,
+      a:  Math.random() * .7 + .15,
+      h:  particleHues[Math.random() > .5 ? 0 : 1],
+    });
+  }
+}
+
+function drawParticles() {
+  cx.clearRect(0, 0, cvs.width, cvs.height);
+  for (const p of pts) {
+    cx.beginPath();
+    cx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    cx.fillStyle = `hsla(${p.h},100%,70%,${p.a})`;
+    cx.fill();
+    p.x += p.vx;  p.y += p.vy;
+    if (p.x < 0) p.x = cvs.width;
+    if (p.x > cvs.width) p.x = 0;
+    if (p.y < 0) p.y = cvs.height;
+    if (p.y > cvs.height) p.y = 0;
+  }
+  requestAnimationFrame(drawParticles);
+}
+
+window.addEventListener('resize', () => { resizeCvs(); mkParticles(); });
+resizeCvs(); mkParticles(); drawParticles();
+
+// ══════════════════════════════════════════
+//  RING SETUP
+// ══════════════════════════════════════════
+const R = 140;
+const CIRC = 2 * Math.PI * R;
+const ringEl = document.getElementById('ring-fg');
+ringEl.style.strokeDasharray  = CIRC;
+ringEl.style.strokeDashoffset = 0;
+
+function setRing(frac) {
+  ringEl.style.strokeDashoffset = CIRC * (1 - Math.max(0, Math.min(1, frac)));
+}
+
+// Generic ring markup + helpers, reused by the vote admin/voter screens
+// (they share the same #grad gradient def already in the DOM).
+function ringHtml(prefix) {
+  return `<svg class="ring-svg" viewBox="0 0 320 320">
+      <circle class="ring-bg" cx="160" cy="160" r="140"/>
+      <path class="ring-fg" id="ring-fg-${prefix}" d="M 160 20 A 140 140 0 0 0 160 300 A 140 140 0 0 0 160 20"/>
+    </svg>
+    <div class="ring-inner">
+      <div class="time-big" id="time-big-${prefix}">00:00</div>
+      <div class="pct-label" id="pct-lbl-${prefix}"></div>
+    </div>`;
+}
+
+function initRing(prefix) {
+  const el = document.getElementById('ring-fg-' + prefix);
+  el.style.strokeDasharray  = CIRC;
+  el.style.strokeDashoffset = 0;
+}
+
+function updateRingEl(prefix, frac) {
+  document.getElementById('ring-fg-' + prefix).style.strokeDashoffset =
+    CIRC * (1 - Math.max(0, Math.min(1, frac)));
+}
+
+// Ticks a ring toward an absolute end time (so all devices stay in sync
+// regardless of when they loaded the page or minor clock drift).
+function startVoteRingTicker(endsAtMs, totalSecs, prefix, onZero) {
+  clearInterval(voteTicker);
+  voteLocked = false;
+  function tick() {
+    const remaining = Math.max(0, Math.round((endsAtMs - Date.now()) / 1000));
+    const frac = totalSecs > 0 ? remaining / totalSecs : 0;
+    document.getElementById('time-big-' + prefix).innerHTML = fmtHtml(remaining);
+    updateRingEl(prefix, 1 - frac);
+    if (remaining <= 0) {
+      clearInterval(voteTicker);
+      voteLocked = true;
+      if (onZero) onZero();
+    }
+  }
+  voteTicker = setInterval(tick, 1000);
+  tick();
+}
+
+// ══════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════
+function nudge(id, delta) {
+  const el  = document.getElementById(id);
+  const max = parseInt(el.max, 10);
+  let v = (parseInt(el.value, 10) || 0) + delta;
+  if (v < 0) v = max;
+  if (v > max) v = 0;
+  el.value = v;
+}
+
+function clampInput(el) {
+  let v = parseInt(el.value, 10) || 0;
+  v = Math.max(parseInt(el.min,10), Math.min(parseInt(el.max,10), v));
+  el.value = v;
+}
+
+['inp-h','inp-m','inp-s'].forEach(id =>
+  document.getElementById(id).addEventListener('change', function() { clampInput(this); })
+);
+
+function fmt(secs) {
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  const mm = String(m).padStart(2,'0');
+  const ss = String(s).padStart(2,'0');
+  return h > 0 ? `${String(h).padStart(2,'0')}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
+function fmtHtml(secs) {
+  return fmt(secs).split('').map(c =>
+    `<span style="display:inline-block;text-align:center;width:${c===':'?'.38em':'.75em'}">${c}</span>`
+  ).join('');
+}
+
+// ══════════════════════════════════════════
+//  VOLUME
+// ══════════════════════════════════════════
+function syncVolume(val, lblId) {
+  volume = parseInt(val, 10);
+  document.getElementById(lblId).textContent = volume + '%';
+  // Keep both sliders in sync
+  document.getElementById('vol-setup').value = volume;
+  document.getElementById('vol-cd').value    = volume;
+  document.getElementById('vol-setup-lbl').textContent = volume + '%';
+  document.getElementById('vol-cd-lbl').textContent    = volume + '%';
+  applyVolume();
+}
+
+function applyVolume() {
+  if (audioEl) audioEl.volume = volume / 100;
+}
+
+// ══════════════════════════════════════════
+//  SOURCE TOGGLE
+// ══════════════════════════════════════════
+function setSource(s) {
+  source = s;
+  ['none','youtube','file'].forEach(k => {
+    document.getElementById('src-' + k).classList.toggle('active', k === s);
+  });
+  ['youtube','file'].forEach(k => {
+    document.getElementById('panel-' + k).classList.toggle('show', k === s);
+  });
+}
+
+function renderFileList() {
+  const lbl = document.getElementById('file-lbl');
+  lbl.textContent = audioFiles.length === 1
+    ? '🎵 ' + audioFiles[0].name
+    : `🎵 ${audioFiles.length} files loaded`;
+  lbl.classList.add('loaded');
+  document.getElementById('file-list').innerHTML = audioFiles.map((f, i) =>
+    `<div style="padding:.1rem 0;${i===audioIndex?'color:var(--text)':''}">${i+1}. ${f.name}</div>`
+  ).join('');
+  document.getElementById('file-add-btn').style.display = 'block';
+}
+
+function onFileChosen(inp) {
+  if (!inp.files.length) return;
+  audioFiles = Array.from(inp.files);
+  audioIndex = 0;
+  audioBlob  = audioFiles[0];
+  renderFileList();
+}
+
+function onFilesAdded(inp) {
+  if (!inp.files.length) return;
+  audioFiles = audioFiles.concat(Array.from(inp.files));
+  renderFileList();
+  if (source === 'file' && audioEl) updatePlaylistCtrl();
+  inp.value = '';
+}
+
+// ══════════════════════════════════════════
+//  YOUTUBE  (popup window — bypasses Error 153 / file:// origin restriction)
+// ══════════════════════════════════════════
+function extractVid(url) {
+  url = url.trim();
+  const patterns = [
+    /[?&]v=([a-zA-Z0-9_-]{11})/,
+    /youtu\.be\/([a-zA-Z0-9_-]{11})/,
+    /embed\/([a-zA-Z0-9_-]{11})/,
+    /^([a-zA-Z0-9_-]{11})$/,
+  ];
+  for (const p of patterns) { const m = url.match(p); if (m) return m[1]; }
+  return null;
+}
+
+let ytPopup = null;
+
+function playYT(vid) {
+  const url = `https://www.youtube.com/watch?v=${vid}&autoplay=1`;
+  ytPopup = window.open(url, 'yt_popup', 'width=560,height=380,resizable=yes');
+  if (!ytPopup) {
+    alert('Popup was blocked.\n\nAllow popups for this page in your browser, then press Start again.');
+    return;
+  }
+  const loopHint = loopEnabled
+    ? `<div style="color:var(--accent);font-size:.7rem;margin-top:.3rem">Loop: right-click the video → Loop</div>`
+    : '';
+  document.getElementById('yt-body').innerHTML =
+    `<div style="padding:.7rem 1rem;font-size:.78rem;color:var(--text-dim);line-height:1.6">
+       Music playing in popup.${loopHint}
+       <button onclick="ytPopup && ytPopup.focus()"
+         style="display:block;margin-top:.5rem;padding:.3rem .75rem;border-radius:8px;
+                border:1px solid var(--border);background:var(--surface);
+                color:var(--text);cursor:pointer;font-size:.75rem">
+         Focus player ↗
+       </button>
+     </div>`;
+  document.getElementById('yt-body').style.height = 'auto';
+}
+
+function showYtWidget() { document.getElementById('yt-widget').classList.add('show'); }
+function hideYtWidget() { document.getElementById('yt-widget').classList.remove('show'); }
+function toggleYtCollapse() {
+  const body = document.getElementById('yt-body');
+  const btn  = document.getElementById('yt-collapse-btn');
+  const hiding = body.style.maxHeight !== '0px';
+  body.style.maxHeight = hiding ? '0' : '200px';
+  btn.textContent = hiding ? '▲' : '▼';
+}
+
+function startMusic() {
+  loopEnabled = document.getElementById('loop-chk').checked;
+  stopMusic();
+  if (source === 'youtube') {
+    const vid = extractVid(document.getElementById('yt-url').value);
+    if (!vid) { alert('Could not find a YouTube video ID in that URL.'); return; }
+    showYtWidget();
+    playYT(vid);
+    showBadge('YouTube');
+  } else if (source === 'file' && audioFiles.length) {
+    playTrack(audioIndex);
+  }
+}
+
+function playTrack(idx) {
+  if (audioEl) { audioEl.pause(); audioEl.src = ''; audioEl = null; }
+  audioIndex = idx;
+  const f = audioFiles[audioIndex];
+  audioEl = new Audio(URL.createObjectURL(f));
+  audioEl.volume = volume / 100;
+  audioEl.play().catch(() => {});
+  audioEl.onended = () => {
+    if (loopEnabled && audioFiles.length === 1) { audioEl.currentTime=0; audioEl.play(); return; }
+    const next = audioIndex + 1;
+    if (next < audioFiles.length) { playTrack(next); }
+    else if (loopEnabled) { playTrack(0); }
+    else { onDone(); }
+  };
+  const name = f.name.length > 22 ? f.name.slice(0,20)+'…' : f.name;
+  showBadge(name);
+  updatePlaylistCtrl();
+}
+
+function playPrev() {
+  if (!audioFiles.length) return;
+  playTrack(audioIndex > 0 ? audioIndex - 1 : audioFiles.length - 1);
+}
+
+function playNext() {
+  if (!audioFiles.length) return;
+  playTrack(audioIndex < audioFiles.length - 1 ? audioIndex + 1 : 0);
+}
+
+function updatePlaylistCtrl() {
+  const ctrl = document.getElementById('playlist-ctrl');
+  if (source === 'file' && audioFiles.length > 1) {
+    ctrl.classList.add('show');
+    const f = audioFiles[audioIndex];
+    document.getElementById('pl-track-lbl').textContent =
+      `${audioIndex+1}/${audioFiles.length}`;
+  } else {
+    ctrl.classList.remove('show');
+  }
+}
+
+function stopMusic() {
+  if (audioEl) { audioEl.pause(); audioEl.src = ''; audioEl = null; }
+  if (ytPopup && !ytPopup.closed) { ytPopup.close(); }
+  ytPopup = null;
+  document.getElementById('yt-body').innerHTML = '';
+  document.getElementById('yt-body').style.height = 'auto';
+  hideYtWidget();
+  hideBadge();
+  document.getElementById('playlist-ctrl').classList.remove('show');
+}
+function pauseMusic() {
+  if (audioEl) audioEl.pause();
+  // YouTube popup: user controls it directly
+}
+function resumeMusic() {
+  if (audioEl) audioEl.play().catch(() => {});
+}
+
+function showBadge(lbl) {
+  document.getElementById('music-badge-lbl').textContent = lbl;
+  document.getElementById('music-badge').style.display = 'flex';
+}
+function hideBadge() {
+  document.getElementById('music-badge').style.display = 'none';
+}
+
+// ══════════════════════════════════════════
+//  TIMER
+// ══════════════════════════════════════════
+function updateDisplay() {
+  const frac    = totalSecs > 0 ? remaining / totalSecs : 0;
+  const elapsed = 1 - frac;
+  const pct     = Math.round(elapsed * 100);
+  const warn    = remaining <= Math.round(totalSecs * 0.15) && remaining > 0;
+
+  document.getElementById('time-big').innerHTML    = fmtHtml(remaining);
+  document.getElementById('pct-lbl').textContent   = pct + '%';
+  document.getElementById('time-big').classList.toggle('warn', warn);
+  ringEl.classList.toggle('ring-warn', warn);
+  setRing(elapsed);
+}
+
+function tick() {
+  if (remaining <= 0) {
+    clearInterval(ticker); ticker = null;
+    updateDisplay();
+    onDone();
+    return;
+  }
+  remaining--;
+  updateDisplay();
+}
+
+function startCountdown() {
+  const h = parseInt(document.getElementById('inp-h').value, 10) || 0;
+  const m = parseInt(document.getElementById('inp-m').value, 10) || 0;
+  const s = parseInt(document.getElementById('inp-s').value, 10) || 0;
+  totalSecs = h * 3600 + m * 60 + s;
+
+  if (totalSecs <= 0) { alert('Please set a duration greater than zero!'); return; }
+
+  remaining = totalSecs;
+  paused    = false;
+
+  const rawTitle = document.getElementById('inp-title').value.trim();
+  document.getElementById('cd-title-lbl').textContent = rawTitle || 'COUNTDOWN';
+
+  document.getElementById('resume-btn').classList.remove('show');
+  showCountdown();
+  document.getElementById('play-btn').textContent = '⏸';
+  document.getElementById('done-overlay').classList.remove('show');
+
+  updateDisplay();
+  if (ticker) clearInterval(ticker);
+  ticker = setInterval(tick, 1000);
+  startMusic();
+}
+
+function togglePause() {
+  if (!ticker && !paused) return;
+  paused = !paused;
+  document.getElementById('play-btn').textContent = paused ? '▶' : '⏸';
+  if (paused) {
+    clearInterval(ticker); ticker = null;
+    pauseMusic();
+  } else {
+    ticker = setInterval(tick, 1000);
+    resumeMusic();
+  }
+}
+
+function doReset() {
+  clearInterval(ticker); ticker = null;
+  paused    = false;
+  remaining = totalSecs;
+  document.getElementById('play-btn').textContent = '⏸';
+  document.getElementById('done-overlay').classList.remove('show');
+  updateDisplay();
+  ticker = setInterval(tick, 1000);
+  resumeMusic();
+}
+
+function doRestart() {
+  document.getElementById('done-overlay').classList.remove('show');
+  document.getElementById('fullscreen-btn').classList.remove('prominent');
+  doReset();
+  startMusic();
+}
+
+function onDone() {
+  stopMusic();
+  document.getElementById('done-overlay').classList.add('show');
+  document.getElementById('fullscreen-btn').classList.add('prominent');
+}
+
+// ══════════════════════════════════════════
+//  SCREEN TRANSITIONS
+// ══════════════════════════════════════════
+function showCountdown() {
+  document.getElementById('screen-setup').classList.add('hidden');
+  document.getElementById('screen-countdown').classList.add('show');
+  document.getElementById('fullscreen-btn').classList.add('show');
+}
+
+function promptSettings() {
+  // Pause the timer if running, then go to setup screen
+  if (totalSecs > 0 && !paused) {
+    paused = true;
+    clearInterval(ticker); ticker = null;
+    document.getElementById('play-btn').textContent = '▶';
+    pauseMusic();
+  }
+  // Show Resume button only when a countdown is in progress
+  document.getElementById('resume-btn').classList.toggle('show', totalSecs > 0 && remaining > 0);
+  document.getElementById('screen-countdown').classList.remove('show');
+  document.getElementById('screen-setup').classList.remove('hidden');
+  document.getElementById('fullscreen-btn').classList.remove('show', 'prominent');
+}
+
+function resumeCountdown() {
+  const rawTitle = document.getElementById('inp-title').value.trim();
+  document.getElementById('cd-title-lbl').textContent = rawTitle || 'COUNTDOWN';
+  document.getElementById('resume-btn').classList.remove('show');
+  paused = false;
+  document.getElementById('play-btn').textContent = '⏸';
+  document.getElementById('screen-setup').classList.add('hidden');
+  document.getElementById('screen-countdown').classList.add('show');
+  document.getElementById('fullscreen-btn').classList.add('show');
+  ticker = setInterval(tick, 1000);
+  resumeMusic();
+}
+
+function goSetup() {
+  clearInterval(ticker); ticker = null;
+  totalSecs = 0; remaining = 0;
+  stopMusic();
+  document.getElementById('resume-btn').classList.remove('show');
+  document.getElementById('done-overlay').classList.remove('show');
+  document.getElementById('screen-countdown').classList.remove('show');
+  document.getElementById('screen-setup').classList.remove('hidden');
+  document.getElementById('fullscreen-btn').classList.remove('show', 'prominent');
+  leaveVoteScreens();
+}
+
+function leaveVoteScreens() {
+  clearInterval(voteTicker); voteTicker = null;
+  if (pollUnsub) { pollUnsub(); pollUnsub = null; }
+  if (imagesUnsub) { imagesUnsub(); imagesUnsub = null; }
+  currentPollId = null;
+  document.getElementById('screen-vote-admin').style.display = 'none';
+  document.getElementById('screen-vote').style.display = 'none';
+}
+
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  } else {
+    document.exitFullscreen().catch(() => {});
+  }
+}
+
+// ══════════════════════════════════════════
+//  IMAGE VOTING — staging (setup screen)
+// ══════════════════════════════════════════
+function resizeImageFile(file, maxDim = 900, quality = 0.72) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > height && width > maxDim) { height = Math.round(height * maxDim / width); width = maxDim; }
+      else if (height > maxDim) { width = Math.round(width * maxDim / height); height = maxDim; }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not read image')); };
+    img.src = url;
+  });
+}
+
+function onVoteImagesChosen(inp) {
+  const files = Array.from(inp.files || []);
+  if (!files.length) return;
+  Promise.all(files.map(f => resizeImageFile(f)))
+    .then(urls => {
+      voteImages = voteImages.concat(urls.map(u => ({ dataUrl: u })));
+      renderVoteImageGrid();
+    })
+    .catch(e => alert('Could not load one of the images: ' + e.message));
+  inp.value = '';
+}
+
+function removeVoteImage(i) {
+  voteImages.splice(i, 1);
+  renderVoteImageGrid();
+}
+
+function renderVoteImageGrid() {
+  const grid = document.getElementById('vote-img-grid');
+  const lbl  = document.getElementById('vote-img-lbl');
+  if (voteImages.length) {
+    grid.style.display = 'grid';
+    lbl.textContent = `🖼 ${voteImages.length} image${voteImages.length > 1 ? 's' : ''} selected — click to add more`;
+    lbl.classList.add('loaded');
+  } else {
+    grid.style.display = 'none';
+    lbl.textContent = '🖼 Click to choose 2+ images to vote on…';
+    lbl.classList.remove('loaded');
+  }
+  grid.innerHTML = voteImages.map((im, i) => `
+    <div style="position:relative">
+      <img src="${im.dataUrl}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;border:1px solid var(--border);display:block">
+      <button onclick="removeVoteImage(${i})" title="Remove"
+        style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;border:1px solid var(--border);
+               background:rgba(6,6,15,.92);color:var(--text-dim);font-size:.7rem;cursor:pointer;line-height:1;padding:0">✕</button>
+    </div>`).join('');
+  document.getElementById('start-vote-btn').style.display = voteImages.length >= 2 ? 'block' : 'none';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!firebaseReady()) document.getElementById('voting-config-note').style.display = 'block';
+});
+
+function genPollId() {
+  const chars = '0123456789abcdefghijklmnopqrstuvwxyz';
+  return Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+async function startVoting() {
+  if (!firebaseReady()) {
+    alert("Voting isn't connected to a backend yet — set FIREBASE_CONFIG near the top of the <script> tag in index.html.");
+    return;
+  }
+  const h = parseInt(document.getElementById('inp-h').value, 10) || 0;
+  const m = parseInt(document.getElementById('inp-m').value, 10) || 0;
+  const s = parseInt(document.getElementById('inp-s').value, 10) || 0;
+  const durationSecs = h * 3600 + m * 60 + s;
+  if (durationSecs <= 0) { alert('Please set a duration greater than zero!'); return; }
+  if (voteImages.length < 2) { alert('Please add at least 2 images to vote on.'); return; }
+
+  const title  = document.getElementById('inp-title').value.trim() || 'VOTE NOW';
+  const pollId = genPollId();
+  const endsAtMs = Date.now() + durationSecs * 1000;
+
+  const btn = document.getElementById('start-vote-btn');
+  btn.disabled = true; btn.textContent = 'Creating…';
+  try {
+    const pollRef = db.collection('polls').doc(pollId);
+    await pollRef.set({
+      title, durationSecs,
+      endsAt: firebase.firestore.Timestamp.fromMillis(endsAtMs),
+      resultsRevealed: false,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      imageCount: voteImages.length,
+    });
+    const batch = db.batch();
+    voteImages.forEach((im, i) => {
+      batch.set(pollRef.collection('images').doc(String(i)), { url: im.dataUrl, votes: 0, order: i });
+    });
+    await batch.commit();
+
+    const created = JSON.parse(localStorage.getItem('createdPolls') || '[]');
+    created.push(pollId);
+    localStorage.setItem('createdPolls', JSON.stringify(created));
+
+    showVoteAdmin(pollId, title, endsAtMs, durationSecs);
+  } catch (e) {
+    alert('Could not start the vote: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '🗳 START VOTING';
+  }
+}
+
+// ══════════════════════════════════════════
+//  IMAGE VOTING — creator's live dashboard
+// ══════════════════════════════════════════
+function showVoteAdmin(pollId, title, endsAtMs, durationSecs) {
+  currentPollId = pollId;
+  document.getElementById('screen-setup').classList.add('hidden');
+  document.getElementById('screen-vote-admin').style.display = 'flex';
+  document.getElementById('va-title-lbl').textContent = title;
+  document.getElementById('va-ring-wrap').innerHTML = ringHtml('va');
+  initRing('va');
+  document.getElementById('va-reveal-btn').disabled = false;
+  document.getElementById('va-reveal-btn').textContent = '🔓 Reveal Results To Voters';
+
+  document.getElementById('va-link').value = location.origin + location.pathname + '?poll=' + pollId;
+
+  document.getElementById('pct-lbl-va').textContent = 'Voting open';
+  startVoteRingTicker(endsAtMs, durationSecs, 'va', () => {
+    document.getElementById('pct-lbl-va').textContent = 'Voting closed';
+  });
+
+  if (imagesUnsub) imagesUnsub();
+  imagesUnsub = db.collection('polls').doc(pollId).collection('images').orderBy('order')
+    .onSnapshot(snap => renderAdminTally(snap.docs.map(d => d.data())));
+}
+
+function renderAdminTally(imgs) {
+  const total = imgs.reduce((sum, im) => sum + (im.votes || 0), 0);
+  document.getElementById('va-tally').innerHTML = imgs.map(im => {
+    const pct = total ? Math.round((im.votes || 0) / total * 100) : 0;
+    return `<div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem">
+      <img src="${im.url}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;border:1px solid var(--border);flex-shrink:0">
+      <div style="flex:1;text-align:left">
+        <div style="height:6px;border-radius:3px;background:var(--surface);overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--accent),var(--accent2))"></div>
+        </div>
+      </div>
+      <div style="font-size:.72rem;color:var(--text-dim);min-width:4.2rem;text-align:right">${im.votes || 0} votes · ${pct}%</div>
+    </div>`;
+  }).join('');
+}
+
+function copyVoteLink() {
+  const inp = document.getElementById('va-link');
+  inp.select();
+  const btn = document.getElementById('va-copy-btn');
+  (navigator.clipboard?.writeText(inp.value) || Promise.reject()).then(() => {
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+  }).catch(() => { document.execCommand('copy'); });
+}
+
+function revealResults() {
+  if (!currentPollId) return;
+  db.collection('polls').doc(currentPollId).update({ resultsRevealed: true });
+  document.getElementById('va-reveal-btn').textContent = '✅ Results Revealed';
+  document.getElementById('va-reveal-btn').disabled = true;
+}
+
+// ══════════════════════════════════════════
+//  IMAGE VOTING — voter screen (?poll=ID)
+// ══════════════════════════════════════════
+function checkVoteParam() {
+  const pollId = new URLSearchParams(location.search).get('poll');
+  if (pollId) enterVoterMode(pollId);
+}
+
+function enterVoterMode(pollId) {
+  document.getElementById('screen-setup').classList.add('hidden');
+  document.getElementById('screen-vote').style.display = 'flex';
+
+  if (!firebaseReady()) {
+    document.getElementById('v-title-lbl').textContent = 'Voting unavailable';
+    document.getElementById('v-status').textContent = "This page hasn't been connected to a voting backend yet.";
+    return;
+  }
+
+  currentPollId = pollId;
+  hasVoted = localStorage.getItem('voted_' + pollId);
+  document.getElementById('v-ring-wrap').innerHTML = ringHtml('v');
+  initRing('v');
+
+  const pollRef = db.collection('polls').doc(pollId);
+  pollRef.get().then(doc => {
+    if (!doc.exists) {
+      document.getElementById('v-title-lbl').textContent = 'Poll not found';
+      document.getElementById('v-status').textContent = 'This voting link is invalid or has expired.';
+      return;
+    }
+    const data = doc.data();
+    document.getElementById('v-title-lbl').textContent = data.title;
+    const endsAtMs = data.endsAt.toMillis();
+
+    document.getElementById('v-status').textContent = hasVoted
+      ? '✓ You voted — results appear here once revealed' : 'Tap an image to vote';
+    startVoteRingTicker(endsAtMs, data.durationSecs, 'v', () => {
+      if (!hasVoted) document.getElementById('v-status').textContent = 'Voting closed';
+    });
+
+    if (pollUnsub) pollUnsub();
+    pollUnsub = pollRef.onSnapshot(d => {
+      if (d.data().resultsRevealed) {
+        document.getElementById('v-status').textContent = 'Results';
+        renderVoterResults();
+      }
+    });
+  });
+
+  if (imagesUnsub) imagesUnsub();
+  imagesUnsub = pollRef.collection('images').orderBy('order').onSnapshot(snap => {
+    voterImages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderVoterGrid();
+  });
+}
+
+function renderVoterGrid() {
+  const grid = document.getElementById('v-grid');
+  grid.innerHTML = voterImages.map(im => {
+    const picked = hasVoted === im.id;
+    const clickable = !hasVoted && !voteLocked;
+    return `<div class="vote-thumb ${clickable ? 'clickable' : ''}" onclick="castVote('${im.id}')"
+      style="border-radius:12px;overflow:hidden;position:relative;
+             border:2px solid ${picked ? 'var(--accent)' : 'var(--border)'};
+             cursor:${clickable ? 'pointer' : 'default'}">
+      <img src="${im.url}" style="width:100%;aspect-ratio:1;object-fit:cover;display:block">
+      ${picked ? `<div style="position:absolute;inset:0;background:rgba(0,212,255,.18);
+        display:flex;align-items:center;justify-content:center;font-size:1.6rem">✓</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderVoterResults() {
+  const grid  = document.getElementById('v-grid');
+  const total = voterImages.reduce((sum, im) => sum + (im.votes || 0), 0);
+  const sorted = [...voterImages].sort((a, b) => (b.votes || 0) - (a.votes || 0));
+  grid.innerHTML = sorted.map(im => {
+    const pct = total ? Math.round((im.votes || 0) / total * 100) : 0;
+    const picked = hasVoted === im.id;
+    return `<div style="border-radius:12px;overflow:hidden;border:1px solid ${picked ? 'var(--accent)' : 'var(--border)'}">
+      <img src="${im.url}" style="width:100%;aspect-ratio:1;object-fit:cover;display:block">
+      <div style="padding:.4rem .5rem;background:var(--surface)">
+        <div style="height:6px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden;margin-bottom:.3rem">
+          <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--accent),var(--accent2))"></div>
+        </div>
+        <div style="font-size:.72rem;color:var(--text-dim)">${im.votes || 0} vote${im.votes === 1 ? '' : 's'} · ${pct}%</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function castVote(imgId) {
+  if (hasVoted || voteLocked || !currentPollId) return;
+  db.collection('polls').doc(currentPollId).collection('images').doc(imgId)
+    .update({ votes: firebase.firestore.FieldValue.increment(1) })
+    .then(() => {
+      hasVoted = imgId;
+      localStorage.setItem('voted_' + currentPollId, imgId);
+      document.getElementById('v-status').textContent = '✓ Thanks for voting! Results appear here once revealed.';
+      renderVoterGrid();
+    })
+    .catch(e => alert('Could not register your vote: ' + e.message));
+}
+
+checkVoteParam();
+
+// ══════════════════════════════════════════
+//  THEMES
+// ══════════════════════════════════════════
+const THEMES = {
+  default:  { '--accent':'#00d4ff', '--accent2':'#7b2fff', '--bg':'#06060f', '--border':'rgba(0,212,255,0.18)', '--text':'#e0e8ff', '--text-dim':'rgba(224,232,255,0.45)', '--glow-c':'rgba(0,212,255,0.25)', '--glow-p':'rgba(123,47,255,0.18)', grad:['#00d4ff','#7b2fff'], hues:[196,272] },
+  midnight: { '--accent':'#ff79c6', '--accent2':'#bd93f9', '--bg':'#0a0010', '--border':'rgba(255,121,198,0.2)', '--text':'#f8f8f2', '--text-dim':'rgba(248,248,242,0.4)', '--glow-c':'rgba(255,121,198,0.25)', '--glow-p':'rgba(189,147,249,0.2)', grad:['#ff79c6','#bd93f9'], hues:[320,270] },
+  ember:    { '--accent':'#ff9f43', '--accent2':'#ff6b6b', '--bg':'#0f0800', '--border':'rgba(255,159,67,0.2)',  '--text':'#fff3e0', '--text-dim':'rgba(255,243,224,0.45)', '--glow-c':'rgba(255,159,67,0.3)',  '--glow-p':'rgba(255,107,107,0.2)', grad:['#ff9f43','#ff6b6b'], hues:[30,0] },
+  forest:   { '--accent':'#00e5a0', '--accent2':'#00b4d8', '--bg':'#020f06', '--border':'rgba(0,229,160,0.18)', '--text':'#e0ffe8', '--text-dim':'rgba(224,255,232,0.45)', '--glow-c':'rgba(0,229,160,0.25)', '--glow-p':'rgba(0,180,216,0.18)', grad:['#00e5a0','#00b4d8'], hues:[160,195] },
+  mono:     { '--accent':'#ffffff', '--accent2':'#aaaaaa', '--bg':'#080808', '--border':'rgba(255,255,255,0.15)','--text':'#ffffff', '--text-dim':'rgba(255,255,255,0.45)', '--glow-c':'rgba(255,255,255,0.15)','--glow-p':'rgba(170,170,170,0.1)', grad:['#ffffff','#aaaaaa'], hues:[0,0] },
+};
+
+let currentTheme = 'default';
+
+function applyTheme(name) {
+  const t = THEMES[name];
+  if (!t) return;
+  currentTheme = name;
+  const root = document.documentElement;
+  Object.entries(t).forEach(([k, v]) => {
+    if (k.startsWith('--')) root.style.setProperty(k, v);
+  });
+  // Update SVG ring gradient
+  const stops = document.querySelectorAll('#grad stop');
+  if (stops[0]) stops[0].setAttribute('stop-color', t.grad[0]);
+  if (stops[1]) stops[1].setAttribute('stop-color', t.grad[1]);
+  // Update ring SVG filter glow
+  document.querySelector('.ring-svg').style.filter =
+    `drop-shadow(0 0 18px ${t['--glow-c']}) drop-shadow(0 0 40px ${t['--glow-p']})`;
+  // Update particles
+  particleHues = t.hues;
+  mkParticles();
+  // Update active swatch
+  document.querySelectorAll('.theme-swatch').forEach(b =>
+    b.classList.toggle('active', b.dataset.theme === name)
+  );
+  // Keep the custom colour picker seeded with this theme's background
+  document.getElementById('custom-bg-input').value = t['--bg'];
+}
+
+function applyCustomBg(color) {
+  currentTheme = 'custom';
+  document.documentElement.style.setProperty('--bg', color);
+  document.querySelectorAll('.theme-swatch').forEach(b =>
+    b.classList.toggle('active', b.dataset.theme === 'custom')
+  );
+}
+
+// ══════════════════════════════════════════
+//  BACKGROUND IMAGE
+// ══════════════════════════════════════════
+let bgObjectUrl = null;
+
+function onBgImageChosen(inp) {
+  if (!inp.files[0]) return;
+  if (bgObjectUrl) URL.revokeObjectURL(bgObjectUrl);
+  bgObjectUrl = URL.createObjectURL(inp.files[0]);
+  const el = document.getElementById('bg-img');
+  el.style.backgroundImage = `url(${bgObjectUrl})`;
+  el.style.display = 'block';
+  document.getElementById('bg-dim').style.display = 'block';
+  document.getElementById('bg-lbl').textContent = '🖼 ' + inp.files[0].name;
+  document.getElementById('bg-lbl').classList.add('loaded');
+  document.getElementById('bg-clear-btn').style.display = 'block';
+  const prev = document.getElementById('bg-preview');
+  prev.src = bgObjectUrl;
+  prev.style.display = 'block';
+}
+
+function clearBgImage() {
+  if (bgObjectUrl) { URL.revokeObjectURL(bgObjectUrl); bgObjectUrl = null; }
+  const el = document.getElementById('bg-img');
+  el.style.backgroundImage = '';
+  el.style.display = 'none';
+  document.getElementById('bg-dim').style.display = 'none';
+  document.getElementById('bg-lbl').textContent = '🖼 Click to choose an image…';
+  document.getElementById('bg-lbl').classList.remove('loaded');
+  document.getElementById('bg-clear-btn').style.display = 'none';
+  document.getElementById('bg-input').value = '';
+  const prev = document.getElementById('bg-preview');
+  prev.src = '';
+  prev.style.display = 'none';
+}
+
+</script>
+</body>
+</html>
