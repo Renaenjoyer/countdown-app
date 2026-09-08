@@ -902,6 +902,21 @@
        border-radius:10px;box-shadow:0 0 60px rgba(0,0,0,.6)">
 </div>
 
+<!-- Voting-end winner reveal — sits behind the celebration image/confetti,
+     stays on screen until clicked (unlike the celebration layer, which auto-fades) -->
+<div id="celebration-winner" onclick="closeCelebrationWinner()"
+     style="display:none;position:fixed;inset:0;z-index:85;flex-direction:column;
+            align-items:center;justify-content:center;background:rgba(6,6,15,.92);
+            cursor:pointer;padding:2rem;text-align:center">
+  <img id="celebration-winner-img" style="max-width:70vw;max-height:52vh;object-fit:contain;
+       border-radius:16px;box-shadow:0 0 60px rgba(0,212,255,.35);margin-bottom:1.5rem">
+  <div class="done-title" style="font-size:clamp(2rem,6vw,3.5rem)">WINNER!</div>
+  <div id="celebration-winner-bar" style="width:100%;max-width:420px;margin-top:1.25rem"></div>
+  <div style="font-size:.68rem;color:var(--text-dim);margin-top:1.25rem;letter-spacing:.08em">
+    Click anywhere to close
+  </div>
+</div>
+
 <!-- Voting-end celebration — confetti canvas + rising/fading image -->
 <canvas id="confetti-canvas" style="display:none;position:fixed;inset:0;z-index:89;pointer-events:none"></canvas>
 <div id="celebration-overlay"
@@ -1529,10 +1544,24 @@ function playCountdownEndSound() {
 
 let celebrationTimer = null;
 
-function playVotingEndCelebration() {
+function playVotingEndCelebration(images) {
   const a = new Audio(customVotingEndUrl || DEFAULT_VOTING_END_SOUND);
   a.volume = volume / 100;
   a.play().catch(() => {});
+
+  // Winner reveal — sits behind the celebration image, stays until clicked
+  if (images && images.length) {
+    const total  = images.reduce((sum, im) => sum + (im.votes || 0), 0);
+    const winner = images.reduce((best, im) => (im.votes || 0) > (best.votes || 0) ? im : best, images[0]);
+    const pct    = total ? Math.round((winner.votes || 0) / total * 100) : 0;
+    document.getElementById('celebration-winner-img').src = winner.url;
+    document.getElementById('celebration-winner-bar').innerHTML = `
+      <div style="height:8px;border-radius:4px;background:var(--surface);overflow:hidden;margin-bottom:.4rem">
+        <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--accent),var(--accent2))"></div>
+      </div>
+      <div style="font-size:.85rem;color:var(--text-dim)">${winner.votes || 0} vote${winner.votes === 1 ? '' : 's'} · ${pct}%</div>`;
+    document.getElementById('celebration-winner').style.display = 'flex';
+  }
 
   const overlay = document.getElementById('celebration-overlay');
   const img = document.getElementById('celebration-img');
@@ -1549,6 +1578,10 @@ function playVotingEndCelebration() {
     img.classList.remove('animate');
     stopConfetti();
   }, 5200);
+}
+
+function closeCelebrationWinner() {
+  document.getElementById('celebration-winner').style.display = 'none';
 }
 
 // ── Confetti burst (separate canvas from the ambient background particles) ──
@@ -1668,6 +1701,11 @@ function leaveVoteScreens() {
   document.getElementById('screen-vote-admin').style.display = 'none';
   document.getElementById('screen-vote').style.display = 'none';
   closeFullscreenImage();
+  closeCelebrationWinner();
+  clearTimeout(celebrationTimer);
+  document.getElementById('celebration-overlay').style.display = 'none';
+  document.getElementById('celebration-img').classList.remove('animate');
+  stopConfetti();
 }
 
 function toggleFullscreen() {
@@ -1828,7 +1866,7 @@ function showVoteAdmin(pollId, title, endsAtMs, durationSecs) {
   document.getElementById('pct-lbl-va').textContent = 'Voting open';
   startVoteRingTicker(endsAtMs, durationSecs, 'va', () => {
     document.getElementById('pct-lbl-va').textContent = 'Voting closed';
-    playVotingEndCelebration();
+    playVotingEndCelebration(lastAdminImgs);
   });
 
   if (imagesUnsub) imagesUnsub();
@@ -1936,7 +1974,7 @@ function enterVoterMode(pollId) {
     startVoteRingTicker(endsAtMs, data.durationSecs, 'v', () => {
       updateVoterStatus();
       renderVoterGrid();
-      playVotingEndCelebration();
+      playVotingEndCelebration(voterImages);
     });
 
     if (pollUnsub) pollUnsub();
