@@ -11,12 +11,10 @@ service cloud.firestore {
         ['title', 'durationSecs', 'endsAt', 'resultsRevealed', 'imageCount', 'expireAt']
       );
 
-      // Only allow flipping resultsRevealed from false -> true; nothing else
-      // about the poll may change after creation.
+      // The host can toggle resultsRevealed on and off; nothing else about
+      // the poll may change after creation.
       allow update: if request.resource.data.diff(resource.data).affectedKeys()
-                       .hasOnly(['resultsRevealed'])
-                    && resource.data.resultsRevealed == false
-                    && request.resource.data.resultsRevealed == true;
+                       .hasOnly(['resultsRevealed']);
 
       // No manual delete from the app — a Firestore TTL policy on the
       // `expireAt` field auto-deletes polls ~1hr after creation instead

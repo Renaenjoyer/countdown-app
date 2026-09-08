@@ -724,7 +724,10 @@
     </div>
   </div>
 
-  <div id="va-tally" style="width:100%;max-width:420px;margin-bottom:1.5rem"></div>
+  <button id="va-tally-toggle-btn" onclick="toggleAdminTally()"
+    style="margin-bottom:1rem;padding:.5rem 1rem;border-radius:10px;border:1px solid var(--border);
+           background:var(--surface);color:var(--text-dim);cursor:pointer;font-size:.78rem">👁 Show Votes</button>
+  <div id="va-tally" style="display:none;width:100%;max-width:420px;margin-bottom:1.5rem"></div>
 
   <div style="display:flex;gap:.75rem;flex-wrap:wrap;justify-content:center">
     <button class="done-btn alt" id="va-reveal-btn" onclick="revealResults()">🔓 Reveal Results To Voters</button>
@@ -801,6 +804,14 @@
 <!-- Fullscreen toggle — top-level so it stays above the done overlay -->
 <button id="fullscreen-btn" onclick="toggleFullscreen()" title="Fullscreen">⛶</button>
 
+<!-- Fullscreen image viewer — shared by the vote admin & voter screens -->
+<div id="fullscreen-img-overlay" onclick="closeFullscreenImage()"
+     style="display:none;position:fixed;inset:0;z-index:100;background:rgba(6,6,15,.94);
+            align-items:center;justify-content:center;padding:2.5rem;cursor:zoom-out">
+  <img id="fullscreen-img-el" style="max-width:100%;max-height:100%;object-fit:contain;
+       border-radius:10px;box-shadow:0 0 60px rgba(0,0,0,.6)">
+</div>
+
 <!-- ═══════════════════════════════
      DONE OVERLAY
 ═══════════════════════════════ -->
@@ -855,10 +866,14 @@ const FIREBASE_CONFIG = {
 
 let db            = null;
 let voteImages    = [];   // { dataUrl } staged locally before "Start Voting"
-let voterImages   = [];   // images loaded for the voter/admin view, with live vote counts
+let voterImages   = [];   // images loaded for the voter view, with live vote counts
+let lastAdminImgs = [];   // images loaded for the admin dashboard, with live vote counts
 let currentPollId = null;
 let hasVoted       = null; // image id this browser voted for, or null
 let voteLocked     = false;
+let resultsRevealed     = false; // voter-side: whether the host has revealed results
+let adminResultsRevealed = false; // admin-side: local mirror of the toggle we control
+let adminTallyVisible    = false; // admin-side: whether the host is currently viewing the vote list
 let voteTicker     = null;
 let pollUnsub      = null;
 let imagesUnsub    = null;
@@ -1353,6 +1368,7 @@ function leaveVoteScreens() {
   currentPollId = null;
   document.getElementById('screen-vote-admin').style.display = 'none';
   document.getElementById('screen-vote').style.display = 'none';
+  closeFullscreenImage();
 }
 
 function toggleFullscreen() {
@@ -1499,8 +1515,12 @@ function showVoteAdmin(pollId, title, endsAtMs, durationSecs) {
   document.getElementById('va-title-lbl').textContent = title;
   document.getElementById('va-ring-wrap').innerHTML = ringHtml('va');
   initRing('va');
-  document.getElementById('va-reveal-btn').disabled = false;
+
+  adminResultsRevealed = false;
   document.getElementById('va-reveal-btn').textContent = '🔓 Reveal Results To Voters';
+  adminTallyVisible = false;
+  document.getElementById('va-tally').style.display = 'none';
+  document.getElementById('va-tally-toggle-btn').textContent = '👁 Show Votes';
 
   document.getElementById('va-link').value = location.origin + location.pathname + '?poll=' + pollId;
 
@@ -1514,12 +1534,20 @@ function showVoteAdmin(pollId, title, endsAtMs, durationSecs) {
     .onSnapshot(snap => renderAdminTally(snap.docs.map(d => d.data())));
 }
 
+function toggleAdminTally() {
+  adminTallyVisible = !adminTallyVisible;
+  document.getElementById('va-tally').style.display = adminTallyVisible ? 'block' : 'none';
+  document.getElementById('va-tally-toggle-btn').textContent = adminTallyVisible ? '🙈 Hide Votes' : '👁 Show Votes';
+}
+
 function renderAdminTally(imgs) {
+  lastAdminImgs = imgs;
   const total = imgs.reduce((sum, im) => sum + (im.votes || 0), 0);
-  document.getElementById('va-tally').innerHTML = imgs.map(im => {
+  document.getElementById('va-tally').innerHTML = imgs.map((im, i) => {
     const pct = total ? Math.round((im.votes || 0) / total * 100) : 0;
     return `<div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem">
-      <img src="${im.url}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;border:1px solid var(--border);flex-shrink:0">
+      <img src="${im.url}" onclick="openFullscreenImageAt('admin', ${i})" title="View fullscreen"
+        style="width:36px;height:36px;object-fit:cover;border-radius:6px;border:1px solid var(--border);flex-shrink:0;cursor:pointer">
       <div style="flex:1;text-align:left">
         <div style="height:6px;border-radius:3px;background:var(--surface);overflow:hidden">
           <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--accent),var(--accent2))"></div>
@@ -1542,9 +1570,29 @@ function copyVoteLink() {
 
 function revealResults() {
   if (!currentPollId) return;
-  db.collection('polls').doc(currentPollId).update({ resultsRevealed: true });
-  document.getElementById('va-reveal-btn').textContent = '✅ Results Revealed';
-  document.getElementById('va-reveal-btn').disabled = true;
+  adminResultsRevealed = !adminResultsRevealed;
+  db.collection('polls').doc(currentPollId).update({ resultsRevealed: adminResultsRevealed });
+  document.getElementById('va-reveal-btn').textContent = adminResultsRevealed
+    ? '🙈 Hide Results From Voters' : '🔓 Reveal Results To Voters';
+}
+
+// ══════════════════════════════════════════
+//  FULLSCREEN IMAGE VIEWER — shared by admin & voter screens
+// ══════════════════════════════════════════
+function openFullscreenImageAt(source, i) {
+  const arr = source === 'admin' ? lastAdminImgs : voterImages;
+  const im = arr && arr[i];
+  if (im) openFullscreenImage(im.url);
+}
+
+function openFullscreenImage(url) {
+  document.getElementById('fullscreen-img-el').src = url;
+  document.getElementById('fullscreen-img-overlay').style.display = 'flex';
+}
+
+function closeFullscreenImage() {
+  document.getElementById('fullscreen-img-overlay').style.display = 'none';
+  document.getElementById('fullscreen-img-el').src = '';
 }
 
 // ══════════════════════════════════════════
@@ -1567,6 +1615,7 @@ function enterVoterMode(pollId) {
 
   currentPollId = pollId;
   hasVoted = localStorage.getItem('voted_' + pollId);
+  resultsRevealed = false;
   document.getElementById('v-ring-wrap').innerHTML = ringHtml('v');
   initRing('v');
 
@@ -1581,18 +1630,17 @@ function enterVoterMode(pollId) {
     document.getElementById('v-title-lbl').textContent = data.title;
     const endsAtMs = data.endsAt.toMillis();
 
-    document.getElementById('v-status').textContent = hasVoted
-      ? '✓ You voted — results appear here once revealed' : 'Tap an image to vote';
+    updateVoterStatus();
     startVoteRingTicker(endsAtMs, data.durationSecs, 'v', () => {
-      if (!hasVoted) document.getElementById('v-status').textContent = 'Voting closed';
+      updateVoterStatus();
+      renderVoterGrid();
     });
 
     if (pollUnsub) pollUnsub();
     pollUnsub = pollRef.onSnapshot(d => {
-      if (d.data().resultsRevealed) {
-        document.getElementById('v-status').textContent = 'Results';
-        renderVoterResults();
-      }
+      resultsRevealed = !!d.data().resultsRevealed;
+      updateVoterStatus();
+      renderVoterGrid();
     });
   });
 
@@ -1603,37 +1651,41 @@ function enterVoterMode(pollId) {
   });
 }
 
-function renderVoterGrid() {
-  const grid = document.getElementById('v-grid');
-  grid.innerHTML = voterImages.map(im => {
-    const picked = hasVoted === im.id;
-    const clickable = !hasVoted && !voteLocked;
-    return `<div class="vote-thumb ${clickable ? 'clickable' : ''}" onclick="castVote('${im.id}')"
-      style="border-radius:12px;overflow:hidden;position:relative;
-             border:2px solid ${picked ? 'var(--accent)' : 'var(--border)'};
-             cursor:${clickable ? 'pointer' : 'default'}">
-      <img src="${im.url}" style="width:100%;aspect-ratio:1;object-fit:cover;display:block">
-      ${picked ? `<div style="position:absolute;inset:0;background:rgba(0,212,255,.18);
-        display:flex;align-items:center;justify-content:center;font-size:1.6rem">✓</div>` : ''}
-    </div>`;
-  }).join('');
+function updateVoterStatus() {
+  let txt = hasVoted ? '✓ You voted' : (voteLocked ? 'Voting closed' : 'Tap an image to vote');
+  if (resultsRevealed) txt += ' — results below';
+  else if (hasVoted) txt += ' — results appear once revealed';
+  document.getElementById('v-status').textContent = txt;
 }
 
-function renderVoterResults() {
+// Voting stays open (and results, once revealed, show alongside it) until
+// the countdown actually runs out — voteLocked is the only thing that gates
+// casting a vote; resultsRevealed only gates whether counts are shown.
+function renderVoterGrid() {
   const grid  = document.getElementById('v-grid');
   const total = voterImages.reduce((sum, im) => sum + (im.votes || 0), 0);
-  const sorted = [...voterImages].sort((a, b) => (b.votes || 0) - (a.votes || 0));
-  grid.innerHTML = sorted.map(im => {
-    const pct = total ? Math.round((im.votes || 0) / total * 100) : 0;
-    const picked = hasVoted === im.id;
-    return `<div style="border-radius:12px;overflow:hidden;border:1px solid ${picked ? 'var(--accent)' : 'var(--border)'}">
-      <img src="${im.url}" style="width:100%;aspect-ratio:1;object-fit:cover;display:block">
-      <div style="padding:.4rem .5rem;background:var(--surface)">
-        <div style="height:6px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden;margin-bottom:.3rem">
+  grid.innerHTML = voterImages.map((im, i) => {
+    const picked    = hasVoted === im.id;
+    const clickable = !hasVoted && !voteLocked;
+    const pct       = total ? Math.round((im.votes || 0) / total * 100) : 0;
+    return `<div>
+      <div class="vote-thumb ${clickable ? 'clickable' : ''}" ${clickable ? `onclick="castVote('${im.id}')"` : ''}
+        style="border-radius:12px;overflow:hidden;position:relative;
+               border:2px solid ${picked ? 'var(--accent)' : 'var(--border)'};
+               cursor:${clickable ? 'pointer' : 'default'}">
+        <img src="${im.url}" style="width:100%;aspect-ratio:1;object-fit:cover;display:block">
+        ${picked ? `<div style="position:absolute;inset:0;background:rgba(0,212,255,.18);
+          display:flex;align-items:center;justify-content:center;font-size:1.6rem">✓</div>` : ''}
+      </div>
+      ${resultsRevealed ? `<div style="margin-top:.4rem">
+        <div style="height:6px;border-radius:3px;background:var(--surface);overflow:hidden;margin-bottom:.3rem">
           <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--accent),var(--accent2))"></div>
         </div>
-        <div style="font-size:.72rem;color:var(--text-dim)">${im.votes || 0} vote${im.votes === 1 ? '' : 's'} · ${pct}%</div>
-      </div>
+        <div style="font-size:.7rem;color:var(--text-dim)">${im.votes || 0} vote${im.votes === 1 ? '' : 's'} · ${pct}%</div>
+      </div>` : ''}
+      <button onclick="openFullscreenImageAt('voter', ${i})"
+        style="margin-top:.4rem;width:100%;padding:.4rem;border-radius:8px;border:1px solid var(--border);
+               background:var(--surface);color:var(--text-dim);cursor:pointer;font-size:.7rem">⛶ Full Screen</button>
     </div>`;
   }).join('');
 }
@@ -1645,7 +1697,7 @@ function castVote(imgId) {
     .then(() => {
       hasVoted = imgId;
       localStorage.setItem('voted_' + currentPollId, imgId);
-      document.getElementById('v-status').textContent = '✓ Thanks for voting! Results appear here once revealed.';
+      updateVoterStatus();
       renderVoterGrid();
     })
     .catch(e => alert('Could not register your vote: ' + e.message));
