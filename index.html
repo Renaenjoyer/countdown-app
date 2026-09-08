@@ -821,6 +821,14 @@
     <button class="done-btn alt" id="va-reveal-btn" onclick="revealResults()">🔓 Reveal Results To Voters</button>
     <button class="done-btn" onclick="goSetup()">⚙ New Setup</button>
   </div>
+  <!-- Persistent fallback for the tiebreak button — stays available even if
+       the tie overlay gets dismissed (e.g. an accidental click-off) -->
+  <button id="va-tiebreak-btn" onclick="startTiebreakerVote()"
+    style="display:none;margin-top:.75rem;padding:.7rem 1.5rem;border-radius:12px;font-size:.85rem;
+           letter-spacing:.06em;cursor:pointer;border:1px solid var(--accent2);
+           background:rgba(123,47,255,.15);color:var(--accent2)">
+    🔁 New Vote For Tied Winners
+  </button>
   <div style="font-size:.68rem;color:var(--text-dim);margin-top:1rem;max-width:420px">
     Polls (and their images) are deleted automatically about an hour after creation.
   </div>
@@ -1549,6 +1557,8 @@ function playCountdownEndSound() {
 }
 
 let celebrationTimer = null;
+let pendingTieImages  = null; // admin-only: tied winners from the most recent tie, so the
+                               // dashboard's persistent rematch button survives the overlay closing
 
 // `images` is the live [{id,url,votes,order}] list for this poll.
 // `isAdmin` controls whether the "start a tiebreaker vote" button can appear.
@@ -1572,8 +1582,15 @@ function playVotingEndCelebration(images, isAdmin) {
   if (isTie && isAdmin) {
     tieBtn.style.display = 'inline-block';
     tieBtn.onclick = (e) => { e.stopPropagation(); startTiebreakerVote(winners); };
+
+    pendingTieImages = winners;
+    document.getElementById('va-tiebreak-btn').style.display = 'inline-block';
   } else {
     tieBtn.style.display = 'none';
+    if (isAdmin) {
+      pendingTieImages = null;
+      document.getElementById('va-tiebreak-btn').style.display = 'none';
+    }
   }
 
   document.getElementById('celebration-winner').style.display = 'flex';
@@ -1626,12 +1643,16 @@ function closeCelebrationWinner() {
 // index in the in-memory `voteImages` array from when this poll was created
 // -- true as long as the admin hasn't left this screen since.
 async function startTiebreakerVote(tiedImages) {
-  const subset = tiedImages.map(im => voteImages[im.order]).filter(Boolean);
+  const images = tiedImages || pendingTieImages;
+  if (!images) return;
+  const subset = images.map(im => voteImages[im.order]).filter(Boolean);
   if (subset.length < 2) {
     alert("Couldn't start a tiebreaker vote — not enough of the tied images are still available.");
     return;
   }
   closeCelebrationWinner();
+  pendingTieImages = null;
+  document.getElementById('va-tiebreak-btn').style.display = 'none';
   const titleInput = document.getElementById('inp-title');
   if (!/\(tiebreaker\)/i.test(titleInput.value)) {
     titleInput.value = (titleInput.value.trim() || 'VOTE NOW') + ' (Tiebreaker)';
@@ -1762,6 +1783,8 @@ function leaveVoteScreens() {
   document.getElementById('celebration-overlay').style.display = 'none';
   document.getElementById('celebration-img').classList.remove('animate');
   stopConfetti();
+  pendingTieImages = null;
+  document.getElementById('va-tiebreak-btn').style.display = 'none';
 }
 
 function toggleFullscreen() {
@@ -1916,6 +1939,8 @@ function showVoteAdmin(pollId, title, endsAtMs, durationSecs) {
   adminTallyVisible = false;
   document.getElementById('va-tally').style.display = 'none';
   document.getElementById('va-tally-toggle-btn').textContent = '👁 Show Votes';
+  pendingTieImages = null;
+  document.getElementById('va-tiebreak-btn').style.display = 'none';
 
   document.getElementById('va-link').value = location.origin + location.pathname + '?poll=' + pollId;
 
