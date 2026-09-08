@@ -16,12 +16,12 @@ service cloud.firestore {
       allow update: if request.resource.data.diff(resource.data).affectedKeys()
                        .hasOnly(['resultsRevealed']);
 
-      // No manual delete from the app — a Firestore TTL policy on the
-      // `expireAt` field auto-deletes polls ~1hr after creation instead
-      // (configured separately in the Firebase console; TTL deletion is
-      // performed by Firestore's internal maintenance process and isn't
-      // subject to these rules).
-      allow delete: if false;
+      // Firestore's native TTL feature requires the Blaze billing plan, so
+      // cleanup instead runs as a scheduled job that hits the public REST
+      // API with no credentials at all. This rule is what makes that safe:
+      // a doc can ONLY be deleted once its own `expireAt` has passed, so a
+      // still-live poll can never be deleted no matter who asks.
+      allow delete: if resource.data.expireAt < request.time;
 
       match /images/{imageId} {
         allow read: if true;
@@ -37,7 +37,8 @@ service cloud.firestore {
                       && request.resource.data.votes == resource.data.votes + 1
                       && request.time < get(/databases/$(database)/documents/polls/$(pollId)).data.endsAt;
 
-        allow delete: if false;
+        // Same expiry-gated delete as the parent poll.
+        allow delete: if resource.data.expireAt < request.time;
       }
     }
   }
