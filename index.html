@@ -604,7 +604,9 @@
                placeholder="Paste YouTube video URL or ID…"
                style="font-weight:400;">
         <div style="margin-top:.55rem;font-size:.72rem;color:var(--text-dim);line-height:1.5;padding:0 .2rem">
-          YouTube opens in a separate window — browser security prevents embedding it directly.
+          Plays embedded in-app with full volume/pause/loop control. Falls back to a separate
+          popup window if the video's owner disabled embedding, or if you're running this from
+          a local file instead of the hosted link.
         </div>
       </div>
 
@@ -831,6 +833,11 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 
+<!-- YouTube IFrame Player API — lets us embed the video and drive it
+     (volume/pause/loop) from JS instead of opening a popup. Only usable
+     from a real http(s) origin; index.html falls back to a popup on file://. -->
+<script src="https://www.youtube.com/iframe_api"></script>
+
 <script>
 // ══════════════════════════════════════════
 //  STATE
@@ -1049,6 +1056,7 @@ function syncVolume(val, lblId) {
 
 function applyVolume() {
   if (audioEl) audioEl.volume = volume / 100;
+  if (ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(volume);
 }
 
 // ══════════════════════════════════════════
@@ -1093,7 +1101,8 @@ function onFilesAdded(inp) {
 }
 
 // ══════════════════════════════════════════
-//  YOUTUBE  (popup window — bypasses Error 153 / file:// origin restriction)
+//  YOUTUBE  (embedded via the IFrame Player API on a real http(s) origin;
+//  falls back to a popup window on file:// or when a video blocks embedding)
 // ══════════════════════════════════════════
 function extractVid(url) {
   url = url.trim();
@@ -1107,9 +1116,52 @@ function extractVid(url) {
   return null;
 }
 
-let ytPopup = null;
+let ytPopup     = null; // popup fallback
+let ytPlayer    = null; // YT.Player instance (embedded mode)
+let ytApiReady  = false;
+let ytPendingVid = null;
+
+// Called by the YouTube IFrame API once it has finished loading.
+function onYouTubeIframeAPIReady() {
+  ytApiReady = true;
+  if (ytPendingVid) {
+    const vid = ytPendingVid;
+    ytPendingVid = null;
+    createYtPlayer(vid);
+  }
+}
 
 function playYT(vid) {
+  if (location.protocol === 'file:') { playYTPopup(vid); return; }
+  if (ytApiReady && typeof YT !== 'undefined' && YT.Player) {
+    createYtPlayer(vid);
+  } else {
+    ytPendingVid = vid;
+    document.getElementById('yt-body').innerHTML =
+      `<div style="padding:.7rem 1rem;font-size:.78rem;color:var(--text-dim)">Loading player…</div>`;
+    document.getElementById('yt-body').style.height = 'auto';
+  }
+}
+
+function createYtPlayer(vid) {
+  document.getElementById('yt-body').innerHTML = '<div id="yt-player-el"></div>';
+  document.getElementById('yt-body').style.height = 'auto';
+  ytPlayer = new YT.Player('yt-player-el', {
+    width: '240', height: '135', videoId: vid,
+    playerVars: { autoplay: 1, playsinline: 1, rel: 0 },
+    events: {
+      onReady: (e) => { e.target.setVolume(volume); e.target.playVideo(); },
+      onStateChange: (e) => {
+        if (e.data === YT.PlayerState.ENDED && loopEnabled) { e.target.seekTo(0); e.target.playVideo(); }
+      },
+      // Embedding blocked for this video (or by the page's origin) — fall back to a popup.
+      onError: () => { playYTPopup(vid); },
+    },
+  });
+}
+
+function playYTPopup(vid) {
+  if (ytPlayer) { try { ytPlayer.destroy(); } catch (e) {} ytPlayer = null; }
   const url = `https://www.youtube.com/watch?v=${vid}&autoplay=1`;
   ytPopup = window.open(url, 'yt_popup', 'width=560,height=380,resizable=yes');
   if (!ytPopup) {
@@ -1199,6 +1251,8 @@ function updatePlaylistCtrl() {
 
 function stopMusic() {
   if (audioEl) { audioEl.pause(); audioEl.src = ''; audioEl = null; }
+  if (ytPlayer) { try { ytPlayer.destroy(); } catch (e) {} ytPlayer = null; }
+  ytPendingVid = null;
   if (ytPopup && !ytPopup.closed) { ytPopup.close(); }
   ytPopup = null;
   document.getElementById('yt-body').innerHTML = '';
@@ -1209,10 +1263,12 @@ function stopMusic() {
 }
 function pauseMusic() {
   if (audioEl) audioEl.pause();
-  // YouTube popup: user controls it directly
+  if (ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo();
+  // YouTube popup fallback: user controls it directly
 }
 function resumeMusic() {
   if (audioEl) audioEl.play().catch(() => {});
+  if (ytPlayer && ytPlayer.playVideo) ytPlayer.playVideo();
 }
 
 function showBadge(lbl) {
