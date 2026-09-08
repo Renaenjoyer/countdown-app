@@ -1169,6 +1169,14 @@ function clampInput(el) {
   document.getElementById(id).addEventListener('change', function() { clampInput(this); })
 );
 
+// Escapes untrusted strings (e.g. anything sourced from Firestore, which is
+// publicly writable) before they're interpolated into an innerHTML template.
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+}
+
 function fmt(secs) {
   const h = Math.floor(secs / 3600);
   const m = Math.floor((secs % 3600) / 60);
@@ -1630,7 +1638,7 @@ function renderCelebrationWinners(images, total) {
   document.getElementById('celebration-winner-images').innerHTML = images.map(im => {
     const pct = total ? Math.round((im.votes || 0) / total * 100) : 0;
     return `<div style="max-width:${imgMaxW}">
-      <img src="${im.url}" style="display:block;margin:0 auto;max-width:100%;max-height:${imgMaxH};
+      <img src="${escapeHtml(im.url)}" style="display:block;margin:0 auto;max-width:100%;max-height:${imgMaxH};
            object-fit:contain;border-radius:14px;box-shadow:0 0 40px rgba(0,212,255,.3)">
       <div style="margin-top:.6rem">
         <div style="height:8px;border-radius:4px;background:var(--surface);overflow:hidden;margin-bottom:.35rem">
@@ -1975,7 +1983,7 @@ function renderAdminTally(imgs) {
   document.getElementById('va-tally').innerHTML = imgs.map((im, i) => {
     const pct = total ? Math.round((im.votes || 0) / total * 100) : 0;
     return `<div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem">
-      <img src="${im.url}" onclick="openFullscreenImageAt('admin', ${i})" title="View fullscreen"
+      <img src="${escapeHtml(im.url)}" onclick="openFullscreenImageAt('admin', ${i})" title="View fullscreen"
         style="width:36px;height:36px;object-fit:cover;border-radius:6px;border:1px solid var(--border);flex-shrink:0;cursor:pointer">
       <div style="flex:1;text-align:left">
         <div style="height:6px;border-radius:3px;background:var(--surface);overflow:hidden">
@@ -2099,11 +2107,11 @@ function renderVoterGrid() {
     const clickable = !hasVoted && !voteLocked;
     const pct       = total ? Math.round((im.votes || 0) / total * 100) : 0;
     return `<div>
-      <div class="vote-thumb ${clickable ? 'clickable' : ''}" ${clickable ? `onclick="castVote('${im.id}')"` : ''}
+      <div class="vote-thumb ${clickable ? 'clickable' : ''}" data-vote-id="${escapeHtml(im.id)}"
         style="border-radius:12px;overflow:hidden;position:relative;
                border:2px solid ${picked ? 'var(--accent)' : 'var(--border)'};
                cursor:${clickable ? 'pointer' : 'default'}">
-        <img src="${im.url}" style="width:100%;aspect-ratio:1;object-fit:cover;display:block">
+        <img src="${escapeHtml(im.url)}" style="width:100%;aspect-ratio:1;object-fit:cover;display:block">
         ${picked ? `<div style="position:absolute;inset:0;background:rgba(0,212,255,.18);
           display:flex;align-items:center;justify-content:center;font-size:1.6rem">✓</div>` : ''}
       </div>
@@ -2118,6 +2126,13 @@ function renderVoterGrid() {
                background:var(--surface);color:var(--text-dim);cursor:pointer;font-size:.7rem">⛶ Full Screen</button>
     </div>`;
   }).join('');
+
+  // Bound via addEventListener (not an inline onclick string) so a
+  // maliciously-crafted document id can never be interpreted as JS --
+  // it's only ever read back as inert text via .dataset.
+  grid.querySelectorAll('.vote-thumb.clickable').forEach(el => {
+    el.addEventListener('click', () => castVote(el.dataset.voteId));
+  });
 }
 
 function castVote(imgId) {
