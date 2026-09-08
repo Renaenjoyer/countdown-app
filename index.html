@@ -1187,6 +1187,14 @@ function fmtHtml(secs) {
 // ══════════════════════════════════════════
 //  VOLUME
 // ══════════════════════════════════════════
+// <audio>.volume is linear, but perceived loudness is roughly logarithmic --
+// at 50% linear you barely notice any drop. A quadratic taper makes the
+// slider actually feel proportional to how loud things sound.
+function gainFor(pct) {
+  const v = Math.max(0, Math.min(100, pct)) / 100;
+  return v * v;
+}
+
 function syncVolume(val, lblId) {
   volume = parseInt(val, 10);
   document.getElementById(lblId).textContent = volume + '%';
@@ -1199,8 +1207,8 @@ function syncVolume(val, lblId) {
 }
 
 function applyVolume() {
-  if (audioEl) audioEl.volume = volume / 100;
-  if (ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(volume);
+  if (audioEl) audioEl.volume = gainFor(volume);
+  if (ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(volume); // YouTube's own API, not linear <audio>.volume
 }
 
 // ══════════════════════════════════════════
@@ -1357,7 +1365,7 @@ function playTrack(idx) {
   audioIndex = idx;
   const f = audioFiles[audioIndex];
   audioEl = new Audio(URL.createObjectURL(f));
-  audioEl.volume = volume / 100;
+  audioEl.volume = gainFor(volume);
   audioEl.play().catch(() => {});
   audioEl.onended = () => {
     if (loopEnabled && audioFiles.length === 1) { audioEl.currentTime=0; audioEl.play(); return; }
@@ -1552,7 +1560,7 @@ function clearCustomSound(kind) {
 
 function playCountdownEndSound() {
   const a = new Audio(customCountdownEndUrl || DEFAULT_COUNTDOWN_END_SOUND);
-  a.volume = volume / 100;
+  a.volume = gainFor(volume);
   a.play().catch(() => {});
 }
 
@@ -1572,7 +1580,7 @@ function playVotingEndCelebration(images, isAdmin) {
 
   const soundUrl = isTie ? DEFAULT_VOTING_TIED_SOUND : (customVotingEndUrl || DEFAULT_VOTING_END_SOUND);
   const a = new Audio(soundUrl);
-  a.volume = volume / 100;
+  a.volume = gainFor(volume);
   a.play().catch(() => {});
 
   document.getElementById('celebration-winner-title').textContent = isTie ? "IT'S A TIE!" : 'WINNER!';
