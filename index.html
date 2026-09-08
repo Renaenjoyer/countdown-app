@@ -108,8 +108,15 @@
       font-size: .68rem; letter-spacing: .14em; text-transform: uppercase;
       color: var(--accent); margin-bottom: .65rem;
       display: flex; align-items: center; gap: .5rem;
+      cursor: pointer; user-select: none;
     }
-    .field-label::before { content: ''; width: 14px; height: 1px; background: var(--accent); }
+    .toggle-icon {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 14px; height: 14px; flex-shrink: 0;
+      border: 1px solid var(--accent); border-radius: 3px;
+      font-size: .7rem; line-height: 1; color: var(--accent);
+    }
+    .collapsible-body.collapsed { display: none; }
 
     /* Time inputs */
     .time-row {
@@ -426,6 +433,15 @@
       from { filter: brightness(1) drop-shadow(0 0 10px rgba(0,212,255,.4)); }
       to   { filter: brightness(1.4) drop-shadow(0 0 30px rgba(0,212,255,.7)); }
     }
+
+    /* Voting-end celebration image */
+    @keyframes celebrate-rise {
+      0%   { opacity: 0; transform: translateY(40px) scale(.92); }
+      15%  { opacity: 1; transform: translateY(0) scale(1); }
+      70%  { opacity: 1; transform: translateY(-10px) scale(1); }
+      100% { opacity: 0; transform: translateY(-60px) scale(1.02); }
+    }
+    #celebration-img.animate { animation: celebrate-rise 5s ease-in-out forwards; }
     .done-sub { color: var(--text-dim); margin-top: .75rem; letter-spacing: .25em; font-size: .85rem; }
     .done-actions { margin-top: 2.25rem; display: flex; gap: .75rem; flex-wrap: wrap; justify-content: center; }
     .done-btn {
@@ -554,39 +570,47 @@
 
     <!-- Display title -->
     <div class="field-wrap">
-      <div class="field-label">Display Title</div>
-      <input class="text-input" id="inp-title" type="text" maxlength="42"
-             placeholder="Starting Soon…  /  BRB  /  Break Time…">
+      <div class="field-label" onclick="toggleSection('sec-title')">
+        <span class="toggle-icon" id="icon-sec-title">−</span>Display Title
+      </div>
+      <div class="collapsible-body" id="sec-title">
+        <input class="text-input" id="inp-title" type="text" maxlength="42"
+               placeholder="Starting Soon…  /  BRB  /  Break Time…">
+      </div>
     </div>
 
     <!-- Duration -->
     <div class="field-wrap">
-      <div class="field-label">Duration</div>
-      <div class="time-row">
-        <div class="time-unit">
-          <input type="number" id="inp-h" min="0" max="23" value="0">
-          <label>HH</label>
-          <div class="num-arrows">
-            <button class="num-arrow" onclick="nudge('inp-h',-1)">−</button>
-            <button class="num-arrow" onclick="nudge('inp-h', 1)">+</button>
+      <div class="field-label" onclick="toggleSection('sec-duration')">
+        <span class="toggle-icon" id="icon-sec-duration">−</span>Duration
+      </div>
+      <div class="collapsible-body" id="sec-duration">
+        <div class="time-row">
+          <div class="time-unit">
+            <input type="number" id="inp-h" min="0" max="23" value="0">
+            <label>HH</label>
+            <div class="num-arrows">
+              <button class="num-arrow" onclick="nudge('inp-h',-1)">−</button>
+              <button class="num-arrow" onclick="nudge('inp-h', 1)">+</button>
+            </div>
           </div>
-        </div>
-        <span class="time-sep">:</span>
-        <div class="time-unit">
-          <input type="number" id="inp-m" min="0" max="59" value="5">
-          <label>MM</label>
-          <div class="num-arrows">
-            <button class="num-arrow" onclick="nudge('inp-m',-1)">−</button>
-            <button class="num-arrow" onclick="nudge('inp-m', 1)">+</button>
+          <span class="time-sep">:</span>
+          <div class="time-unit">
+            <input type="number" id="inp-m" min="0" max="59" value="5">
+            <label>MM</label>
+            <div class="num-arrows">
+              <button class="num-arrow" onclick="nudge('inp-m',-1)">−</button>
+              <button class="num-arrow" onclick="nudge('inp-m', 1)">+</button>
+            </div>
           </div>
-        </div>
-        <span class="time-sep">:</span>
-        <div class="time-unit">
-          <input type="number" id="inp-s" min="0" max="59" value="0">
-          <label>SS</label>
-          <div class="num-arrows">
-            <button class="num-arrow" onclick="nudge('inp-s',-1)">−</button>
-            <button class="num-arrow" onclick="nudge('inp-s', 1)">+</button>
+          <span class="time-sep">:</span>
+          <div class="time-unit">
+            <input type="number" id="inp-s" min="0" max="59" value="0">
+            <label>SS</label>
+            <div class="num-arrows">
+              <button class="num-arrow" onclick="nudge('inp-s',-1)">−</button>
+              <button class="num-arrow" onclick="nudge('inp-s', 1)">+</button>
+            </div>
           </div>
         </div>
       </div>
@@ -594,39 +618,42 @@
 
     <!-- Music source -->
     <div class="field-wrap">
-      <div class="field-label">Music Source</div>
-      <div class="source-toggle">
-        <button class="src-btn active" id="src-none"     onclick="setSource('none')">🔇 None</button>
-        <button class="src-btn"        id="src-youtube"  onclick="setSource('youtube')">▶ YouTube</button>
-        <button class="src-btn"        id="src-file"     onclick="setSource('file')">🎵 Local File</button>
+      <div class="field-label" onclick="toggleSection('sec-music')">
+        <span class="toggle-icon" id="icon-sec-music">−</span>Music Source
       </div>
+      <div class="collapsible-body" id="sec-music">
+        <div class="source-toggle">
+          <button class="src-btn active" id="src-none"     onclick="setSource('none')">🔇 None</button>
+          <button class="src-btn"        id="src-youtube"  onclick="setSource('youtube')">▶ YouTube</button>
+          <button class="src-btn"        id="src-file"     onclick="setSource('file')">🎵 Local File</button>
+        </div>
 
-      <div class="src-panel" id="panel-youtube">
-        <input class="text-input" id="yt-url" type="text"
-               placeholder="Paste YouTube video URL or ID…"
-               style="font-weight:400;">
-        <div style="margin-top:.55rem;font-size:.72rem;color:var(--text-dim);line-height:1.5;padding:0 .2rem">
-          Plays embedded in-app with full volume/pause/loop control. Falls back to a separate
-          popup window if the video's owner disabled embedding, or if you're running this from
-          a local file instead of the hosted link.
+        <div class="src-panel" id="panel-youtube">
+          <input class="text-input" id="yt-url" type="text"
+                 placeholder="Paste YouTube video URL or ID…"
+                 style="font-weight:400;">
+          <div style="margin-top:.55rem;font-size:.72rem;color:var(--text-dim);line-height:1.5;padding:0 .2rem">
+            Plays embedded in-app with full volume/pause/loop control. Falls back to a separate
+            popup window if the video's owner disabled embedding, or if you're running this from
+            a local file instead of the hosted link.
+          </div>
+        </div>
+
+        <div class="src-panel" id="panel-file">
+          <div style="display:flex;gap:.5rem;align-items:center">
+            <label class="file-lbl" for="file-input" id="file-lbl" style="flex:1;margin:0">
+              📂 Click to choose audio files (mp3, flac, ogg…)
+            </label>
+            <button id="file-add-btn" onclick="document.getElementById('file-input-add').click()"
+              style="display:none;padding:.5rem .75rem;border-radius:10px;border:1px solid var(--border);
+                     background:var(--surface);color:var(--text-dim);cursor:pointer;font-size:.75rem;
+                     white-space:nowrap">+ Add</button>
+          </div>
+          <input type="file" id="file-input" accept="audio/*" multiple onchange="onFileChosen(this)">
+          <input type="file" id="file-input-add" accept="audio/*" multiple style="display:none" onchange="onFilesAdded(this)">
+          <div id="file-list" style="margin-top:.5rem;font-size:.72rem;color:var(--text-dim);max-height:80px;overflow-y:auto;line-height:1.7"></div>
         </div>
       </div>
-
-      <div class="src-panel" id="panel-file">
-        <div style="display:flex;gap:.5rem;align-items:center">
-          <label class="file-lbl" for="file-input" id="file-lbl" style="flex:1;margin:0">
-            📂 Click to choose audio files (mp3, flac, ogg…)
-          </label>
-          <button id="file-add-btn" onclick="document.getElementById('file-input-add').click()"
-            style="display:none;padding:.5rem .75rem;border-radius:10px;border:1px solid var(--border);
-                   background:var(--surface);color:var(--text-dim);cursor:pointer;font-size:.75rem;
-                   white-space:nowrap">+ Add</button>
-        </div>
-        <input type="file" id="file-input" accept="audio/*" multiple onchange="onFileChosen(this)">
-        <input type="file" id="file-input-add" accept="audio/*" multiple style="display:none" onchange="onFilesAdded(this)">
-        <div id="file-list" style="margin-top:.5rem;font-size:.72rem;color:var(--text-dim);max-height:80px;overflow-y:auto;line-height:1.7"></div>
-      </div>
-
     </div>
 
     <!-- Loop toggle -->
@@ -639,65 +666,122 @@
     </div>
 
     <!-- Volume -->
-    <div class="field-label">Volume</div>
-    <div class="vol-row" style="margin-bottom:1.75rem">
-      <span class="vol-icon">🔊</span>
-      <input type="range" id="vol-setup" min="0" max="100" value="70"
-             oninput="syncVolume(this.value,'vol-setup-lbl')">
-      <span class="vol-label" id="vol-setup-lbl">70%</span>
+    <div class="field-wrap">
+      <div class="field-label" onclick="toggleSection('sec-volume')">
+        <span class="toggle-icon" id="icon-sec-volume">−</span>Volume
+      </div>
+      <div class="collapsible-body" id="sec-volume">
+        <div class="vol-row" style="margin-bottom:1.75rem">
+          <span class="vol-icon">🔊</span>
+          <input type="range" id="vol-setup" min="0" max="100" value="50"
+                 oninput="syncVolume(this.value,'vol-setup-lbl')">
+          <span class="vol-label" id="vol-setup-lbl">50%</span>
+        </div>
+      </div>
     </div>
 
     <!-- Theme -->
     <div class="field-wrap">
-      <div class="field-label">Theme</div>
-      <div class="theme-row" id="theme-row">
-        <button class="theme-swatch active" data-theme="default"   onclick="applyTheme('default')"   title="Default"   style="background:linear-gradient(135deg,#00d4ff,#7b2fff)"></button>
-        <button class="theme-swatch"        data-theme="midnight"  onclick="applyTheme('midnight')"  title="Midnight"  style="background:linear-gradient(135deg,#ff79c6,#bd93f9)"></button>
-        <button class="theme-swatch"        data-theme="ember"     onclick="applyTheme('ember')"     title="Ember"     style="background:linear-gradient(135deg,#ff9f43,#ff6b6b)"></button>
-        <button class="theme-swatch"        data-theme="forest"    onclick="applyTheme('forest')"    title="Forest"    style="background:linear-gradient(135deg,#00e5a0,#00b4d8)"></button>
-        <button class="theme-swatch"        data-theme="mono"      onclick="applyTheme('mono')"      title="Mono"      style="background:linear-gradient(135deg,#ffffff,#888888)"></button>
-        <label class="theme-swatch custom-swatch" data-theme="custom" id="theme-custom-swatch" title="Custom background colour">
-          <input type="color" id="custom-bg-input" value="#06060f" oninput="applyCustomBg(this.value)">
-        </label>
+      <div class="field-label" onclick="toggleSection('sec-theme')">
+        <span class="toggle-icon" id="icon-sec-theme">−</span>Theme
+      </div>
+      <div class="collapsible-body" id="sec-theme">
+        <div class="theme-row" id="theme-row">
+          <button class="theme-swatch active" data-theme="default"   onclick="applyTheme('default')"   title="Default"   style="background:linear-gradient(135deg,#00d4ff,#7b2fff)"></button>
+          <button class="theme-swatch"        data-theme="midnight"  onclick="applyTheme('midnight')"  title="Midnight"  style="background:linear-gradient(135deg,#ff79c6,#bd93f9)"></button>
+          <button class="theme-swatch"        data-theme="ember"     onclick="applyTheme('ember')"     title="Ember"     style="background:linear-gradient(135deg,#ff9f43,#ff6b6b)"></button>
+          <button class="theme-swatch"        data-theme="forest"    onclick="applyTheme('forest')"    title="Forest"    style="background:linear-gradient(135deg,#00e5a0,#00b4d8)"></button>
+          <button class="theme-swatch"        data-theme="mono"      onclick="applyTheme('mono')"      title="Mono"      style="background:linear-gradient(135deg,#ffffff,#888888)"></button>
+          <label class="theme-swatch custom-swatch" data-theme="custom" id="theme-custom-swatch" title="Custom background colour">
+            <input type="color" id="custom-bg-input" value="#06060f" oninput="applyCustomBg(this.value)">
+          </label>
+        </div>
       </div>
     </div>
 
     <!-- Background image -->
     <div class="field-wrap">
-      <div class="field-label">Background Image</div>
-      <div style="display:flex;gap:.5rem;align-items:center">
-        <label class="file-lbl" for="bg-input" id="bg-lbl" style="flex:1;margin:0">
-          🖼 Click to choose an image…
-        </label>
-        <button id="bg-clear-btn" onclick="clearBgImage()"
-          style="display:none;padding:.5rem .75rem;border-radius:10px;border:1px solid var(--border);
-                 background:var(--surface);color:var(--text-dim);cursor:pointer;font-size:.75rem;
-                 white-space:nowrap">✕ Clear</button>
+      <div class="field-label" onclick="toggleSection('sec-bgimage')">
+        <span class="toggle-icon" id="icon-sec-bgimage">−</span>Background Image
       </div>
-      <input type="file" id="bg-input" accept="image/*" style="display:none" onchange="onBgImageChosen(this)">
-      <img id="bg-preview" style="display:none;width:100%;height:80px;object-fit:cover;border-radius:10px;margin-top:.5rem;border:1px solid var(--border)">
+      <div class="collapsible-body" id="sec-bgimage">
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <label class="file-lbl" for="bg-input" id="bg-lbl" style="flex:1;margin:0">
+            🖼 Click to choose an image…
+          </label>
+          <button id="bg-clear-btn" onclick="clearBgImage()"
+            style="display:none;padding:.5rem .75rem;border-radius:10px;border:1px solid var(--border);
+                   background:var(--surface);color:var(--text-dim);cursor:pointer;font-size:.75rem;
+                   white-space:nowrap">✕ Clear</button>
+        </div>
+        <input type="file" id="bg-input" accept="image/*" style="display:none" onchange="onBgImageChosen(this)">
+        <img id="bg-preview" style="display:none;width:100%;height:80px;object-fit:cover;border-radius:10px;margin-top:.5rem;border:1px solid var(--border)">
+      </div>
     </div>
 
     <!-- Image voting -->
     <div class="field-wrap">
-      <div class="field-label">Image Voting <span style="opacity:.6;font-weight:400;text-transform:none;letter-spacing:0">— optional, uses the duration above</span></div>
-      <div style="display:flex;gap:.5rem;align-items:center">
-        <label class="file-lbl" for="vote-img-input" id="vote-img-lbl" style="flex:1;margin:0">
-          🖼 Click to choose 2+ images to vote on…
-        </label>
-        <button id="vote-img-clear-btn" onclick="clearVoteImages()"
-          style="display:none;padding:.5rem .75rem;border-radius:10px;border:1px solid var(--border);
-                 background:var(--surface);color:var(--text-dim);cursor:pointer;font-size:.75rem;
-                 white-space:nowrap">✕ Remove</button>
+      <div class="field-label" onclick="toggleSection('sec-voting')">
+        <span class="toggle-icon" id="icon-sec-voting">−</span>Image Voting
+        <span style="opacity:.6;font-weight:400;text-transform:none;letter-spacing:0">— optional, uses the duration above</span>
       </div>
-      <input type="file" id="vote-img-input" accept="image/*" multiple style="display:none" onchange="onVoteImagesChosen(this)">
-      <div id="vote-img-grid" style="display:none;grid-template-columns:repeat(auto-fill,minmax(60px,1fr));gap:.4rem;margin-top:.6rem"></div>
-      <div id="voting-config-note" style="display:none;font-size:.7rem;color:var(--text-dim);background:rgba(255,68,102,.08);
-           border:1px solid rgba(255,68,102,.25);border-radius:8px;padding:.5rem .7rem;margin-top:.6rem;line-height:1.5">
-        ⚠ Voting isn't connected to a backend yet — set <code>FIREBASE_CONFIG</code> near the top of the &lt;script&gt; tag in index.html.
+      <div class="collapsible-body" id="sec-voting">
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <label class="file-lbl" for="vote-img-input" id="vote-img-lbl" style="flex:1;margin:0">
+            🖼 Click to choose 2+ images to vote on…
+          </label>
+          <button id="vote-img-clear-btn" onclick="clearVoteImages()"
+            style="display:none;padding:.5rem .75rem;border-radius:10px;border:1px solid var(--border);
+                   background:var(--surface);color:var(--text-dim);cursor:pointer;font-size:.75rem;
+                   white-space:nowrap">✕ Remove</button>
+        </div>
+        <input type="file" id="vote-img-input" accept="image/*" multiple style="display:none" onchange="onVoteImagesChosen(this)">
+        <div id="vote-img-grid" style="display:none;grid-template-columns:repeat(auto-fill,minmax(60px,1fr));gap:.4rem;margin-top:.6rem"></div>
+        <div id="voting-config-note" style="display:none;font-size:.7rem;color:var(--text-dim);background:rgba(255,68,102,.08);
+             border:1px solid rgba(255,68,102,.25);border-radius:8px;padding:.5rem .7rem;margin-top:.6rem;line-height:1.5">
+          ⚠ Voting isn't connected to a backend yet — set <code>FIREBASE_CONFIG</code> near the top of the &lt;script&gt; tag in index.html.
+        </div>
+        <button class="start-btn" id="start-vote-btn" onclick="startVoting()"
+          style="display:none;margin-top:.75rem;background:linear-gradient(135deg,var(--accent2),var(--danger))">🗳 START VOTING</button>
       </div>
-      <button class="start-btn" id="start-vote-btn" onclick="startVoting()"
-        style="display:none;margin-top:.75rem;background:linear-gradient(135deg,var(--accent2),var(--danger))">🗳 START VOTING</button>
+    </div>
+
+    <!-- Victory sounds -->
+    <div class="field-wrap">
+      <div class="field-label" onclick="toggleSection('sec-victory')">
+        <span class="toggle-icon" id="icon-sec-victory">+</span>Victory Sounds
+        <span style="opacity:.6;font-weight:400;text-transform:none;letter-spacing:0">— optional</span>
+      </div>
+      <div class="collapsible-body collapsed" id="sec-victory">
+        <div style="font-size:.7rem;color:var(--text-dim);margin-bottom:.6rem;line-height:1.5">
+          Replace the default sounds played when a countdown or vote finishes. Leave unset to
+          use the defaults. (A custom voting-end sound only plays on this device — remote
+          voters always hear the default.)
+        </div>
+        <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.6rem">
+          <label class="file-lbl" for="countdown-end-input" id="countdown-end-lbl" style="flex:1;margin:0">
+            🔔 Countdown end sound (default)
+          </label>
+          <button id="countdown-end-clear-btn" onclick="clearCustomSound('countdown')"
+            style="display:none;padding:.5rem .75rem;border-radius:10px;border:1px solid var(--border);
+                   background:var(--surface);color:var(--text-dim);cursor:pointer;font-size:.75rem;
+                   white-space:nowrap">✕ Clear</button>
+        </div>
+        <input type="file" id="countdown-end-input" accept="audio/*" style="display:none"
+               onchange="onCustomSoundChosen(this, 'countdown')">
+
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <label class="file-lbl" for="voting-end-input" id="voting-end-lbl" style="flex:1;margin:0">
+            🎉 Voting end sound (default)
+          </label>
+          <button id="voting-end-clear-btn" onclick="clearCustomSound('voting')"
+            style="display:none;padding:.5rem .75rem;border-radius:10px;border:1px solid var(--border);
+                   background:var(--surface);color:var(--text-dim);cursor:pointer;font-size:.75rem;
+                   white-space:nowrap">✕ Clear</button>
+        </div>
+        <input type="file" id="voting-end-input" accept="audio/*" style="display:none"
+               onchange="onCustomSoundChosen(this, 'voting')">
+      </div>
     </div>
 
     <button class="resume-btn" id="resume-btn" onclick="resumeCountdown()">▶ RESUME COUNTDOWN</button>
@@ -791,9 +875,9 @@
      and vote-admin screens (music can play during either) -->
 <div class="float-vol" id="float-vol">
   <span>🔊</span>
-  <input type="range" id="vol-cd" min="0" max="100" value="70"
+  <input type="range" id="vol-cd" min="0" max="100" value="50"
          oninput="syncVolume(this.value,'vol-cd-lbl')">
-  <span id="vol-cd-lbl" style="font-size:.75rem;color:var(--text-dim)">70%</span>
+  <span id="vol-cd-lbl" style="font-size:.75rem;color:var(--text-dim)">50%</span>
 </div>
 
 <div class="music-badge" id="music-badge" style="display:none">
@@ -816,6 +900,15 @@
             align-items:center;justify-content:center;padding:2.5rem;cursor:zoom-out">
   <img id="fullscreen-img-el" style="max-width:100%;max-height:100%;object-fit:contain;
        border-radius:10px;box-shadow:0 0 60px rgba(0,0,0,.6)">
+</div>
+
+<!-- Voting-end celebration — confetti canvas + rising/fading image -->
+<canvas id="confetti-canvas" style="display:none;position:fixed;inset:0;z-index:89;pointer-events:none"></canvas>
+<div id="celebration-overlay"
+     style="display:none;position:fixed;inset:0;z-index:90;align-items:center;justify-content:center;
+            pointer-events:none;overflow:hidden">
+  <img id="celebration-img" src="assets/celebration.png"
+       style="max-width:80vw;max-height:80vh;opacity:0;filter:drop-shadow(0 0 40px rgba(0,0,0,.5))">
 </div>
 
 <!-- ═══════════════════════════════
@@ -851,13 +944,21 @@ let remaining    = 0;
 let ticker       = null;
 let paused       = false;
 let source       = 'none';
-let volume       = 70;
+let volume       = 50;
 let loopEnabled  = true;
 let audioEl      = null;
 let audioBlob    = null;
 let audioFiles   = [];   // all loaded files
 let audioIndex   = 0;    // current track index
 let particleHues = [196, 272];
+
+// ══════════════════════════════════════════
+//  END SOUNDS
+// ══════════════════════════════════════════
+const DEFAULT_COUNTDOWN_END_SOUND = 'assets/countdown-end.mp3';
+const DEFAULT_VOTING_END_SOUND    = 'assets/voting-end.mp3';
+let customCountdownEndUrl = null; // object URL, or null to use the default
+let customVotingEndUrl    = null; // object URL, or null to use the default (local device only)
 
 // ══════════════════════════════════════════
 //  IMAGE VOTING — Firebase config
@@ -1005,6 +1106,16 @@ function startVoteRingTicker(endsAtMs, totalSecs, prefix, onZero) {
   }
   voteTicker = setInterval(tick, 1000);
   tick();
+}
+
+// ══════════════════════════════════════════
+//  COLLAPSIBLE SETUP SECTIONS
+// ══════════════════════════════════════════
+function toggleSection(id) {
+  const body = document.getElementById(id);
+  const icon = document.getElementById('icon-' + id);
+  const collapsed = body.classList.toggle('collapsed');
+  icon.textContent = collapsed ? '+' : '−';
 }
 
 // ══════════════════════════════════════════
@@ -1368,8 +1479,132 @@ function doRestart() {
 
 function onDone() {
   stopMusic();
+  playCountdownEndSound();
   document.getElementById('done-overlay').classList.add('show');
   document.getElementById('fullscreen-btn').classList.add('prominent');
+}
+
+// ══════════════════════════════════════════
+//  END SOUNDS & VOTING CELEBRATION
+// ══════════════════════════════════════════
+const SOUND_ICON = { countdown: '🔔', voting: '🎉' };
+
+function onCustomSoundChosen(inp, kind) {
+  if (!inp.files[0]) return;
+  const url = URL.createObjectURL(inp.files[0]);
+  if (kind === 'countdown') {
+    if (customCountdownEndUrl) URL.revokeObjectURL(customCountdownEndUrl);
+    customCountdownEndUrl = url;
+  } else {
+    if (customVotingEndUrl) URL.revokeObjectURL(customVotingEndUrl);
+    customVotingEndUrl = url;
+  }
+  const lbl = document.getElementById(kind + '-end-lbl');
+  lbl.textContent = `${SOUND_ICON[kind]} ${inp.files[0].name}`;
+  lbl.classList.add('loaded');
+  document.getElementById(kind + '-end-clear-btn').style.display = 'block';
+}
+
+function clearCustomSound(kind) {
+  if (kind === 'countdown') {
+    if (customCountdownEndUrl) URL.revokeObjectURL(customCountdownEndUrl);
+    customCountdownEndUrl = null;
+  } else {
+    if (customVotingEndUrl) URL.revokeObjectURL(customVotingEndUrl);
+    customVotingEndUrl = null;
+  }
+  const label = kind === 'countdown' ? 'Countdown end sound (default)' : 'Voting end sound (default)';
+  const lbl = document.getElementById(kind + '-end-lbl');
+  lbl.textContent = `${SOUND_ICON[kind]} ${label}`;
+  lbl.classList.remove('loaded');
+  document.getElementById(kind + '-end-clear-btn').style.display = 'none';
+  document.getElementById(kind + '-end-input').value = '';
+}
+
+function playCountdownEndSound() {
+  const a = new Audio(customCountdownEndUrl || DEFAULT_COUNTDOWN_END_SOUND);
+  a.volume = volume / 100;
+  a.play().catch(() => {});
+}
+
+let celebrationTimer = null;
+
+function playVotingEndCelebration() {
+  const a = new Audio(customVotingEndUrl || DEFAULT_VOTING_END_SOUND);
+  a.volume = volume / 100;
+  a.play().catch(() => {});
+
+  const overlay = document.getElementById('celebration-overlay');
+  const img = document.getElementById('celebration-img');
+  overlay.style.display = 'flex';
+  img.classList.remove('animate');
+  void img.offsetWidth; // restart the CSS animation
+  img.classList.add('animate');
+
+  startConfetti();
+
+  clearTimeout(celebrationTimer);
+  celebrationTimer = setTimeout(() => {
+    overlay.style.display = 'none';
+    img.classList.remove('animate');
+    stopConfetti();
+  }, 5200);
+}
+
+// ── Confetti burst (separate canvas from the ambient background particles) ──
+let confettiCanvas = null, confettiCtx = null, confettiParticles = [];
+let confettiRAF = null, confettiActive = false;
+
+function initConfettiCanvas() {
+  if (confettiCanvas) return;
+  confettiCanvas = document.getElementById('confetti-canvas');
+  confettiCtx = confettiCanvas.getContext('2d');
+  const resize = () => { confettiCanvas.width = window.innerWidth; confettiCanvas.height = window.innerHeight; };
+  window.addEventListener('resize', resize);
+  resize();
+}
+
+function startConfetti() {
+  initConfettiCanvas();
+  confettiCanvas.style.display = 'block';
+  const colors = ['#00d4ff', '#7b2fff', '#ff4466', '#ff9f43', '#00e5a0', '#ffe45e'];
+  confettiParticles = Array.from({ length: 140 }, () => ({
+    x: Math.random() * confettiCanvas.width,
+    y: -20 - Math.random() * confettiCanvas.height * 0.5,
+    w: 6 + Math.random() * 6,
+    h: 8 + Math.random() * 10,
+    vx: (Math.random() - .5) * 2,
+    vy: 2 + Math.random() * 3,
+    rot: Math.random() * 360,
+    vrot: (Math.random() - .5) * 10,
+    color: colors[Math.floor(Math.random() * colors.length)],
+  }));
+  confettiActive = true;
+  drawConfetti();
+}
+
+function drawConfetti() {
+  if (!confettiActive) return;
+  confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+  for (const p of confettiParticles) {
+    p.x += p.vx; p.y += p.vy; p.rot += p.vrot;
+    confettiCtx.save();
+    confettiCtx.translate(p.x, p.y);
+    confettiCtx.rotate(p.rot * Math.PI / 180);
+    confettiCtx.fillStyle = p.color;
+    confettiCtx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+    confettiCtx.restore();
+  }
+  confettiParticles = confettiParticles.filter(p => p.y < confettiCanvas.height + 30);
+  confettiRAF = requestAnimationFrame(drawConfetti);
+}
+
+function stopConfetti() {
+  confettiActive = false;
+  if (confettiRAF) cancelAnimationFrame(confettiRAF);
+  if (confettiCtx) confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+  if (confettiCanvas) confettiCanvas.style.display = 'none';
+  confettiParticles = [];
 }
 
 // ══════════════════════════════════════════
@@ -1593,6 +1828,7 @@ function showVoteAdmin(pollId, title, endsAtMs, durationSecs) {
   document.getElementById('pct-lbl-va').textContent = 'Voting open';
   startVoteRingTicker(endsAtMs, durationSecs, 'va', () => {
     document.getElementById('pct-lbl-va').textContent = 'Voting closed';
+    playVotingEndCelebration();
   });
 
   if (imagesUnsub) imagesUnsub();
@@ -1700,6 +1936,7 @@ function enterVoterMode(pollId) {
     startVoteRingTicker(endsAtMs, data.durationSecs, 'v', () => {
       updateVoterStatus();
       renderVoterGrid();
+      playVotingEndCelebration();
     });
 
     if (pollUnsub) pollUnsub();
