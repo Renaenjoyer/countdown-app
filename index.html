@@ -830,7 +830,7 @@
     🔁 New Vote For Tied Winners
   </button>
   <div style="font-size:.68rem;color:var(--text-dim);margin-top:1rem;max-width:420px">
-    Polls (and their images) are deleted automatically about an hour after creation.
+    Polls (and their images) are deleted automatically about an hour after voting ends.
   </div>
 </div>
 
@@ -1904,7 +1904,8 @@ async function startVoting() {
   const title  = document.getElementById('inp-title').value.trim() || 'VOTE NOW';
   const pollId = genPollId();
   const endsAtMs   = Date.now() + durationSecs * 1000;
-  const expireAtMs = Date.now() + 60 * 60 * 1000; // auto-deleted ~1hr after creation, regardless of duration
+  const expireAtMs = endsAtMs + 60 * 60 * 1000; // auto-deleted ~1hr after voting ends, not from creation --
+                                                 // a long-duration vote must never expire before it's even over
   const expireAt   = firebase.firestore.Timestamp.fromMillis(expireAtMs);
 
   const btn = document.getElementById('start-vote-btn');
