@@ -754,9 +754,18 @@
       </div>
       <div class="collapsible-body collapsed" id="sec-victory">
         <div style="font-size:.7rem;color:var(--text-dim);margin-bottom:.6rem;line-height:1.5">
-          Replace the default sounds played when a countdown or vote finishes. Leave unset to
-          use the defaults. (A custom voting-end sound only plays on this device — remote
-          voters always hear the default.)
+          Replace the default sounds played when a countdown or vote finishes, or turn either
+          one off. Both settings apply only to this device — remote voters still hear the
+          default voting-end sound on their own screens either way.
+        </div>
+
+        <div class="loop-row" style="margin-bottom:.5rem">
+          <label class="loop-label">
+            <input type="checkbox" id="countdown-end-enabled-chk" checked
+                   onchange="toggleSoundEnabled('countdown', this.checked)">
+            <span class="loop-track"><span class="loop-knob"></span></span>
+            Play countdown end sound
+          </label>
         </div>
         <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.6rem">
           <label class="file-lbl" for="countdown-end-input" id="countdown-end-lbl" style="flex:1;margin:0">
@@ -770,6 +779,14 @@
         <input type="file" id="countdown-end-input" accept="audio/*" style="display:none"
                onchange="onCustomSoundChosen(this, 'countdown')">
 
+        <div class="loop-row" style="margin-bottom:.5rem;margin-top:1rem">
+          <label class="loop-label">
+            <input type="checkbox" id="voting-end-enabled-chk" checked
+                   onchange="toggleSoundEnabled('voting', this.checked)">
+            <span class="loop-track"><span class="loop-knob"></span></span>
+            Play voting end sound
+          </label>
+        </div>
         <div style="display:flex;gap:.5rem;align-items:center">
           <label class="file-lbl" for="voting-end-input" id="voting-end-lbl" style="flex:1;margin:0">
             🎉 Voting end sound (default)
@@ -988,6 +1005,8 @@ const DEFAULT_VOTING_END_SOUND    = 'assets/voting-end.mp3';
 const DEFAULT_VOTING_TIED_SOUND   = 'assets/voting-tied.mp3';
 let customCountdownEndUrl = null; // object URL, or null to use the default
 let customVotingEndUrl    = null; // object URL, or null to use the default (local device only)
+let countdownEndSoundEnabled = true;
+let votingEndSoundEnabled    = true; // also gates the tied-vote sound
 
 // ══════════════════════════════════════════
 //  IMAGE VOTING — Firebase config
@@ -1566,7 +1585,13 @@ function clearCustomSound(kind) {
   document.getElementById(kind + '-end-input').value = '';
 }
 
+function toggleSoundEnabled(kind, enabled) {
+  if (kind === 'countdown') countdownEndSoundEnabled = enabled;
+  else votingEndSoundEnabled = enabled;
+}
+
 function playCountdownEndSound() {
+  if (!countdownEndSoundEnabled) return;
   const a = new Audio(customCountdownEndUrl || DEFAULT_COUNTDOWN_END_SOUND);
   a.volume = gainFor(volume);
   a.play().catch(() => {});
@@ -1586,10 +1611,12 @@ function playVotingEndCelebration(images, isAdmin) {
   const winners  = images.filter(im => (im.votes || 0) === maxVotes);
   const isTie    = winners.length > 1;
 
-  const soundUrl = isTie ? DEFAULT_VOTING_TIED_SOUND : (customVotingEndUrl || DEFAULT_VOTING_END_SOUND);
-  const a = new Audio(soundUrl);
-  a.volume = gainFor(volume);
-  a.play().catch(() => {});
+  if (votingEndSoundEnabled) {
+    const soundUrl = isTie ? DEFAULT_VOTING_TIED_SOUND : (customVotingEndUrl || DEFAULT_VOTING_END_SOUND);
+    const a = new Audio(soundUrl);
+    a.volume = gainFor(volume);
+    a.play().catch(() => {});
+  }
 
   document.getElementById('celebration-winner-title').textContent = isTie ? "IT'S A TIE!" : 'WINNER!';
   renderCelebrationWinners(winners, total);
