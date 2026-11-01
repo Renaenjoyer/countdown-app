@@ -577,6 +577,20 @@
     }
     .num-arrow:hover { border-color: var(--accent); color: var(--text); }
 
+    /* Background image crop-position picker */
+    .bg-pos-btn {
+      width: 28px; height: 28px; border-radius: 6px; position: relative;
+      border: 1px solid var(--border); background: var(--surface); cursor: pointer;
+      transition: all .15s;
+    }
+    .bg-pos-btn::before {
+      content: ''; position: absolute; width: 6px; height: 6px; border-radius: 50%;
+      background: var(--text-dim); top: 50%; left: 50%; transform: translate(-50%,-50%);
+    }
+    .bg-pos-btn:hover { border-color: var(--accent); }
+    .bg-pos-btn.active { border-color: var(--accent); background: rgba(0,212,255,.15); }
+    .bg-pos-btn.active::before { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+
     /* ── Image voting ── */
     .vote-thumb { transition: transform .15s, border-color .15s; }
     .vote-thumb.clickable:hover { transform: scale(1.03); border-color: var(--accent) !important; }
@@ -979,6 +993,32 @@
         </div>
         <input type="file" id="bg-input" accept="image/*" style="display:none" onchange="onBgImageChosen(this)">
         <img id="bg-preview" style="display:none;width:100%;height:80px;object-fit:cover;border-radius:10px;margin-top:.5rem;border:1px solid var(--border)">
+
+        <div id="bg-fit-controls" style="display:none;margin-top:.85rem">
+          <div style="font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);margin-bottom:.5rem">Fit</div>
+          <div class="source-toggle" style="grid-template-columns:1fr 1fr;margin-bottom:.1rem">
+            <button class="src-btn active" id="bg-fit-cover"   onclick="setBgFit('cover')">Fill Screen</button>
+            <button class="src-btn"        id="bg-fit-contain" onclick="setBgFit('contain')">Fit Whole Image</button>
+          </div>
+          <div style="font-size:.68rem;color:var(--text-dim);line-height:1.5;margin:.5rem 0 .75rem">
+            "Fill Screen" crops the image to cover the whole page — pick which part stays visible below.
+            "Fit Whole Image" shows the entire image with no cropping, letterboxed if needed.
+          </div>
+          <div id="bg-position-wrap">
+            <div style="font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);margin-bottom:.5rem">Crop Position</div>
+            <div style="display:grid;grid-template-columns:repeat(3,28px);grid-template-rows:repeat(3,28px);gap:4px">
+              <button class="bg-pos-btn" data-pos="left-top"      onclick="setBgPosition('left','top')"    title="Top left"></button>
+              <button class="bg-pos-btn" data-pos="center-top"    onclick="setBgPosition('center','top')"  title="Top"></button>
+              <button class="bg-pos-btn" data-pos="right-top"     onclick="setBgPosition('right','top')"   title="Top right"></button>
+              <button class="bg-pos-btn" data-pos="left-center"   onclick="setBgPosition('left','center')" title="Left"></button>
+              <button class="bg-pos-btn active" data-pos="center-center" onclick="setBgPosition('center','center')" title="Center"></button>
+              <button class="bg-pos-btn" data-pos="right-center"  onclick="setBgPosition('right','center')" title="Right"></button>
+              <button class="bg-pos-btn" data-pos="left-bottom"   onclick="setBgPosition('left','bottom')" title="Bottom left"></button>
+              <button class="bg-pos-btn" data-pos="center-bottom" onclick="setBgPosition('center','bottom')" title="Bottom"></button>
+              <button class="bg-pos-btn" data-pos="right-bottom"  onclick="setBgPosition('right','bottom')" title="Bottom right"></button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -2733,6 +2773,9 @@ function applyCustomBg(color) {
 //  BACKGROUND IMAGE
 // ══════════════════════════════════════════
 let bgObjectUrl = null;
+let bgFitMode   = 'cover';  // 'cover' (fill, crop) | 'contain' (show whole image, letterbox)
+let bgPosX      = 'center';
+let bgPosY      = 'center';
 
 function onBgImageChosen(inp) {
   if (!inp.files[0]) return;
@@ -2745,9 +2788,34 @@ function onBgImageChosen(inp) {
   document.getElementById('bg-lbl').textContent = '🖼 ' + inp.files[0].name;
   document.getElementById('bg-lbl').classList.add('loaded');
   document.getElementById('bg-clear-btn').style.display = 'block';
+  document.getElementById('bg-fit-controls').style.display = 'block';
   const prev = document.getElementById('bg-preview');
   prev.src = bgObjectUrl;
   prev.style.display = 'block';
+  setBgFit('cover');
+  setBgPosition('center', 'center');
+}
+
+function applyBgStyle() {
+  const el = document.getElementById('bg-img');
+  el.style.backgroundSize = bgFitMode;
+  el.style.backgroundPosition = `${bgPosX} ${bgPosY}`;
+}
+
+function setBgFit(mode) {
+  bgFitMode = mode;
+  document.getElementById('bg-fit-cover').classList.toggle('active', mode === 'cover');
+  document.getElementById('bg-fit-contain').classList.toggle('active', mode === 'contain');
+  document.getElementById('bg-position-wrap').style.display = mode === 'cover' ? 'block' : 'none';
+  applyBgStyle();
+}
+
+function setBgPosition(x, y) {
+  bgPosX = x; bgPosY = y;
+  document.querySelectorAll('.bg-pos-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.pos === `${x}-${y}`)
+  );
+  applyBgStyle();
 }
 
 function clearBgImage() {
@@ -2759,6 +2827,7 @@ function clearBgImage() {
   document.getElementById('bg-lbl').textContent = '🖼 Click to choose an image…';
   document.getElementById('bg-lbl').classList.remove('loaded');
   document.getElementById('bg-clear-btn').style.display = 'none';
+  document.getElementById('bg-fit-controls').style.display = 'none';
   document.getElementById('bg-input').value = '';
   const prev = document.getElementById('bg-preview');
   prev.src = '';
