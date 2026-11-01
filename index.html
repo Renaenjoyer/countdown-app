@@ -359,7 +359,10 @@
       width: min(440px, 62vmin); height: min(440px, 62vmin);
       border-radius: 50%; cursor: pointer;
       filter: drop-shadow(0 0 22px rgba(0,212,255,.35)) drop-shadow(0 0 44px rgba(123,47,255,.2));
-      transition: transform 5.2s cubic-bezier(.17,.67,.1,1);
+      /* Fast-start, long-creeping-tail ease (easeOutExpo-ish) so the last
+         stretch of the spin drags out for suspense instead of smoothly
+         gliding to a stop. */
+      transition: transform 7s cubic-bezier(.19,1,.22,1);
     }
     #wheel-canvas:hover { filter: drop-shadow(0 0 30px rgba(0,212,255,.5)) drop-shadow(0 0 50px rgba(123,47,255,.3)); }
     .wheel-pointer {
@@ -2357,15 +2360,18 @@ function spinWheel() {
   const currentMod = ((wheelRotation % 360) + 360) % 360;
   let delta = targetMod - currentMod;
   if (delta <= 0) delta += 360;
-  const extraSpins = 6 + Math.floor(Math.random() * 3);
+  const extraSpins = 8 + Math.floor(Math.random() * 4); // more rotations to fill the longer, slower spin
   wheelRotation += delta + extraSpins * 360;
 
   document.getElementById('wheel-canvas').style.transform = `rotate(${wheelRotation}deg)`;
 
+  // Matches the 7s CSS transition, plus a brief held beat once it visually
+  // stops before the result reveals -- a moment of suspense, not an
+  // instant cut from "still spinning" to "here's your answer".
   setTimeout(() => {
     wheelSpinning = false;
-    onWheelLanded(winnerIndex);
-  }, 5300);
+    setTimeout(() => onWheelLanded(winnerIndex), 500);
+  }, 7100);
 }
 
 function onWheelLanded(winnerIndex) {
