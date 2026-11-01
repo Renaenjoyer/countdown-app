@@ -381,6 +381,29 @@
       to   { opacity: 1; transform: scale(1); }
     }
 
+    /* Wheel entries drawer (edit-in-place on the spin screen) */
+    #wheel-drawer-toggle {
+      position: fixed; top: 50%; right: 0; z-index: 21;
+      transform: translateY(-50%);
+      width: 30px; height: 56px; border-radius: 10px 0 0 10px;
+      border: 1px solid var(--border); border-right: none;
+      background: rgba(8,8,20,.92); color: var(--text-dim);
+      font-size: .9rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      backdrop-filter: blur(10px); transition: right .3s ease, color .2s, border-color .2s;
+    }
+    #wheel-drawer-toggle:hover { color: var(--text); border-color: var(--accent); }
+    #wheel-drawer-toggle.open { right: min(320px, 85vw); }
+    #wheel-drawer {
+      position: fixed; top: 0; right: 0; bottom: 0; z-index: 20;
+      width: min(320px, 85vw);
+      background: rgba(8,8,20,.97); border-left: 1px solid var(--border);
+      padding: 4.5rem 1.25rem 1.5rem; overflow-y: auto;
+      transform: translateX(100%); transition: transform .3s ease;
+      text-align: left; backdrop-filter: blur(16px);
+    }
+    #wheel-drawer.open { transform: translateX(0); }
+
     /* Controls */
     .ctrl-row { display: flex; align-items: center; gap: 1rem; }
     .ctrl-btn {
@@ -1120,6 +1143,25 @@
   </div>
 
   <button class="back-lnk" onclick="goSetup('wheels')">← Setup</button>
+
+  <button id="wheel-drawer-toggle" onclick="toggleWheelDrawer()" title="Edit entries">▶</button>
+  <div id="wheel-drawer">
+    <div style="font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:1rem">
+      Entries
+    </div>
+    <div id="wheel-drawer-list"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:.6rem">
+      <span id="wheel-drawer-count" style="font-size:.68rem;color:var(--text-dim)">0 options</span>
+      <div style="display:flex;gap:.4rem">
+        <button onclick="shuffleWheelOptions()"
+          style="padding:.35rem .7rem;border-radius:8px;border:1px solid var(--border);background:var(--surface);
+                 color:var(--text-dim);cursor:pointer;font-size:.7rem">🔀 Shuffle</button>
+        <button onclick="clearWheelOptions()"
+          style="padding:.35rem .7rem;border-radius:8px;border:1px solid var(--border);background:var(--surface);
+                 color:var(--text-dim);cursor:pointer;font-size:.7rem">✕ Clear All</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ═══════════════════════════════
@@ -2241,6 +2283,19 @@ let wheelRotation    = 0;    // accumulated CSS rotation (deg) -- never reset, s
                               // spins always move forward with no backward snap
 let wheelSpinning    = false;
 let wheelResultIndex = null; // index awaiting a Keep/Remove decision in the result overlay
+let wheelDrawerOpen  = false;
+
+// Blocked while spinning: the in-flight spin's winnerIndex is a plain array
+// index captured when the spin started, so edits (especially removal)
+// during the animation could make it point at the wrong entry by the time
+// it lands.
+function toggleWheelDrawer() {
+  if (wheelSpinning) return;
+  wheelDrawerOpen = !wheelDrawerOpen;
+  document.getElementById('wheel-drawer').classList.toggle('open', wheelDrawerOpen);
+  document.getElementById('wheel-drawer-toggle').classList.toggle('open', wheelDrawerOpen);
+  document.getElementById('wheel-drawer-toggle').textContent = wheelDrawerOpen ? '◀' : '▶';
+}
 
 const WHEEL_PRESETS = {
   d6:    { name: '1 – 6',    options: ['1', '2', '3', '4', '5', '6'] },
@@ -2371,10 +2426,12 @@ function shuffleWheelOptions() {
   refreshWheelViews();
 }
 
+// Renders the same editable rows into both the setup tab's list AND the
+// spin screen's drawer (if present) -- both are just views onto the same
+// wheelOptions array, kept in sync by always re-rendering together.
 function renderWheelOptions() {
-  const list = document.getElementById('wheel-opt-list');
   const totalWeight = wheelOptions.reduce((s, o) => s + (o.weight || 1), 0);
-  list.innerHTML = wheelOptions.map((o, i) => {
+  const rowsHtml = wheelOptions.map((o, i) => {
     const pct = totalWeight ? Math.round((o.weight || 1) / totalWeight * 100) : 0;
     return `
     <div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.4rem">
@@ -2394,8 +2451,17 @@ function renderWheelOptions() {
                color:var(--text-dim);cursor:pointer;font-size:.65rem;flex-shrink:0">✕</button>
     </div>`;
   }).join('');
-  document.getElementById('wheel-opt-count').textContent =
-    wheelOptions.length + (wheelOptions.length === 1 ? ' option' : ' options');
+
+  const countText = wheelOptions.length + (wheelOptions.length === 1 ? ' option' : ' options');
+
+  document.getElementById('wheel-opt-list').innerHTML = rowsHtml;
+  document.getElementById('wheel-opt-count').textContent = countText;
+
+  const drawerList  = document.getElementById('wheel-drawer-list');
+  const drawerCount = document.getElementById('wheel-drawer-count');
+  if (drawerList)  drawerList.innerHTML = rowsHtml;
+  if (drawerCount) drawerCount.textContent = countText;
+
   updateTabButtons();
   refreshWheelViews();
 }
@@ -2483,6 +2549,10 @@ function startWheel() {
   document.getElementById('fullscreen-btn').classList.add('show');
   document.getElementById('float-vol').classList.add('show');
   document.getElementById('wheel-result-overlay').style.display = 'none';
+  wheelDrawerOpen = false;
+  document.getElementById('wheel-drawer').classList.remove('open');
+  document.getElementById('wheel-drawer-toggle').classList.remove('open');
+  document.getElementById('wheel-drawer-toggle').textContent = '▶';
   wheelRotation = 0;
   document.getElementById('wheel-canvas').style.transition = 'none';
   document.getElementById('wheel-canvas').style.transform = 'rotate(0deg)';
@@ -2497,6 +2567,16 @@ function spinWheel() {
   if (wheelSpinning || wheelOptions.length < 2) return;
   wheelSpinning = true;
   document.getElementById('wheel-result-overlay').style.display = 'none';
+
+  // Close the entries drawer if it's open -- editing (especially removing
+  // an entry) while a spin is in flight would shift array indices out from
+  // under the winnerIndex already captured for this spin.
+  if (wheelDrawerOpen) {
+    wheelDrawerOpen = false;
+    document.getElementById('wheel-drawer').classList.remove('open');
+    document.getElementById('wheel-drawer-toggle').classList.remove('open');
+    document.getElementById('wheel-drawer-toggle').textContent = '▶';
+  }
 
   const n = wheelOptions.length;
   const totalWeight = wheelOptions.reduce((s, o) => s + (o.weight || 1), 0);
