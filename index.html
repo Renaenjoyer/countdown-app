@@ -880,6 +880,17 @@
             <button onclick="addWheelOption()"
               style="padding:.6rem 1rem;border-radius:10px;border:1px solid var(--accent);background:rgba(0,212,255,.1);
                      color:var(--accent);cursor:pointer;font-size:.8rem;white-space:nowrap">+ Add</button>
+            <button onclick="toggleWheelBulkList()" id="wheel-bulk-toggle-btn" title="Add a list — one entry per line"
+              style="padding:.6rem .7rem;border-radius:10px;border:1px solid var(--border);background:var(--surface);
+                     color:var(--text-dim);cursor:pointer;font-size:.75rem">▼</button>
+          </div>
+          <div id="wheel-bulk-wrap" style="display:none;margin-bottom:.6rem">
+            <textarea id="wheel-bulk-input" rows="4" placeholder="One option per line…"
+              style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:10px;
+                     color:var(--text);padding:.6rem .7rem;font-size:.85rem;font-family:inherit;resize:vertical"></textarea>
+            <button onclick="addWheelOptionsBulk()"
+              style="margin-top:.5rem;padding:.5rem 1rem;border-radius:10px;border:1px solid var(--accent);
+                     background:rgba(0,212,255,.1);color:var(--accent);cursor:pointer;font-size:.8rem">+ Add List</button>
           </div>
           <div id="wheel-opt-list"></div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:.4rem">
@@ -2259,6 +2270,24 @@ function addWheelOption() {
   wheelOptions.push({ text, color: wheelColorFor(wheelOptions.length) });
   inp.value = '';
   inp.focus();
+  renderWheelOptions();
+}
+
+function toggleWheelBulkList() {
+  const wrap = document.getElementById('wheel-bulk-wrap');
+  const btn  = document.getElementById('wheel-bulk-toggle-btn');
+  const showing = wrap.style.display !== 'none';
+  wrap.style.display = showing ? 'none' : 'block';
+  btn.textContent = showing ? '▼' : '▲';
+  if (!showing) document.getElementById('wheel-bulk-input').focus();
+}
+
+function addWheelOptionsBulk() {
+  const ta = document.getElementById('wheel-bulk-input');
+  const lines = ta.value.split('\n').map(l => l.trim()).filter(Boolean);
+  if (!lines.length) return;
+  lines.forEach(text => wheelOptions.push({ text, color: wheelColorFor(wheelOptions.length) }));
+  ta.value = '';
   renderWheelOptions();
 }
 
