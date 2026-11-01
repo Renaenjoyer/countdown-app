@@ -155,6 +155,33 @@
     .text-input::placeholder { color: var(--text-dim); font-weight: 400; }
     .text-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--glow-c); }
 
+    /* Tab bar */
+    .tab-bar {
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 4px; gap: 4px;
+      margin-bottom: 1.75rem;
+    }
+    .tab-btn {
+      padding: .65rem .4rem; border: none; border-radius: 10px;
+      background: transparent; color: var(--text-dim);
+      font-family: 'Orbitron', sans-serif; font-size: .68rem; font-weight: 700;
+      letter-spacing: .06em; text-transform: uppercase;
+      cursor: pointer; transition: all .2s; white-space: nowrap;
+    }
+    .tab-btn.active {
+      background: linear-gradient(135deg, rgba(0,212,255,.18), rgba(123,47,255,.18));
+      color: var(--text); border: 1px solid var(--border);
+      box-shadow: 0 0 16px var(--glow-c);
+    }
+    .tab-btn:hover:not(.active) { color: var(--text); }
+    .tab-section { display: none; }
+    .tab-section.active { display: block; animation: tab-fade-in .3s ease; }
+    @keyframes tab-fade-in {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
     /* Source toggle */
     .source-toggle {
       display: grid; grid-template-columns: 1fr 1fr 1fr;
@@ -320,6 +347,31 @@
     .pct-label {
       margin-top: .5rem; font-size: .68rem; letter-spacing: .18em;
       color: var(--text-dim); text-transform: uppercase;
+    }
+
+    /* Wheel */
+    .wheel-stage {
+      position: relative;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 1rem;
+    }
+    #wheel-canvas {
+      width: min(440px, 62vmin); height: min(440px, 62vmin);
+      border-radius: 50%; cursor: pointer;
+      filter: drop-shadow(0 0 22px rgba(0,212,255,.35)) drop-shadow(0 0 44px rgba(123,47,255,.2));
+      transition: transform 5.2s cubic-bezier(.17,.67,.1,1);
+    }
+    #wheel-canvas:hover { filter: drop-shadow(0 0 30px rgba(0,212,255,.5)) drop-shadow(0 0 50px rgba(123,47,255,.3)); }
+    .wheel-pointer {
+      position: absolute; top: -6px; left: 50%; transform: translateX(-50%);
+      font-size: 2.1rem; line-height: 1; color: var(--accent); z-index: 2;
+      filter: drop-shadow(0 0 10px var(--accent));
+    }
+    #wheel-result { display: none; }
+    #wheel-result.animate { display: block; animation: wheel-result-pop .5s cubic-bezier(.34,1.56,.64,1); }
+    @keyframes wheel-result-pop {
+      from { opacity: 0; transform: scale(.7); }
+      to   { opacity: 1; transform: scale(1); }
     }
 
     /* Controls */
@@ -537,6 +589,7 @@
       .time-big { font-size: clamp(1.8rem, 8vmin, 3.6rem); }
       .ctrl-btn { width: 44px; height: 44px; font-size: 1rem; }
       .ctrl-btn.big { width: 56px; height: 56px; font-size: 1.3rem; }
+      #wheel-canvas { width: min(260px, 48vmin); height: min(260px, 48vmin); }
     }
   </style>
 </head>
@@ -574,55 +627,248 @@
       <p>Configure your session</p>
     </div>
 
-    <!-- Display title -->
-    <div class="field-wrap">
-      <div class="field-label" onclick="toggleSection('sec-title')">
-        <span class="toggle-icon" id="icon-sec-title">−</span>Display Title
-      </div>
-      <div class="collapsible-body" id="sec-title">
-        <input class="text-input" id="inp-title" type="text" maxlength="42"
-               placeholder="Starting Soon…  /  BRB  /  Break Time…">
-      </div>
+    <!-- Tab bar -->
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="countdown" onclick="switchTab('countdown')">⏱ Countdown</button>
+      <button class="tab-btn" data-tab="voting" onclick="switchTab('voting')">🗳 Voting</button>
+      <button class="tab-btn" data-tab="wheels" onclick="switchTab('wheels')">🎡 Wheels</button>
     </div>
 
-    <!-- Duration -->
-    <div class="field-wrap">
-      <div class="field-label" onclick="toggleSection('sec-duration')">
-        <span class="toggle-icon" id="icon-sec-duration">−</span>Duration
+    <!-- ── COUNTDOWN TAB ── -->
+    <div class="tab-section active" data-tab="countdown">
+      <div class="field-wrap">
+        <div class="field-label" onclick="toggleSection('sec-title')">
+          <span class="toggle-icon" id="icon-sec-title">−</span>Display Title
+        </div>
+        <div class="collapsible-body" id="sec-title">
+          <input class="text-input" id="inp-title" type="text" maxlength="42"
+                 placeholder="Starting Soon…  /  BRB  /  Break Time…">
+        </div>
       </div>
-      <div class="collapsible-body" id="sec-duration">
-        <div class="time-row">
-          <div class="time-unit">
-            <input type="number" id="inp-h" min="0" max="23" value="0">
-            <label>HH</label>
-            <div class="num-arrows">
-              <button class="num-arrow" onclick="nudge('inp-h',-1)">−</button>
-              <button class="num-arrow" onclick="nudge('inp-h', 1)">+</button>
+
+      <div class="field-wrap">
+        <div class="field-label" onclick="toggleSection('sec-duration')">
+          <span class="toggle-icon" id="icon-sec-duration">−</span>Duration
+        </div>
+        <div class="collapsible-body" id="sec-duration">
+          <div class="time-row">
+            <div class="time-unit">
+              <input type="number" id="inp-h" min="0" max="23" value="0">
+              <label>HH</label>
+              <div class="num-arrows">
+                <button class="num-arrow" onclick="nudge('inp-h',-1)">−</button>
+                <button class="num-arrow" onclick="nudge('inp-h', 1)">+</button>
+              </div>
             </div>
-          </div>
-          <span class="time-sep">:</span>
-          <div class="time-unit">
-            <input type="number" id="inp-m" min="0" max="59" value="5">
-            <label>MM</label>
-            <div class="num-arrows">
-              <button class="num-arrow" onclick="nudge('inp-m',-1)">−</button>
-              <button class="num-arrow" onclick="nudge('inp-m', 1)">+</button>
+            <span class="time-sep">:</span>
+            <div class="time-unit">
+              <input type="number" id="inp-m" min="0" max="59" value="5">
+              <label>MM</label>
+              <div class="num-arrows">
+                <button class="num-arrow" onclick="nudge('inp-m',-1)">−</button>
+                <button class="num-arrow" onclick="nudge('inp-m', 1)">+</button>
+              </div>
             </div>
-          </div>
-          <span class="time-sep">:</span>
-          <div class="time-unit">
-            <input type="number" id="inp-s" min="0" max="59" value="0">
-            <label>SS</label>
-            <div class="num-arrows">
-              <button class="num-arrow" onclick="nudge('inp-s',-1)">−</button>
-              <button class="num-arrow" onclick="nudge('inp-s', 1)">+</button>
+            <span class="time-sep">:</span>
+            <div class="time-unit">
+              <input type="number" id="inp-s" min="0" max="59" value="0">
+              <label>SS</label>
+              <div class="num-arrows">
+                <button class="num-arrow" onclick="nudge('inp-s',-1)">−</button>
+                <button class="num-arrow" onclick="nudge('inp-s', 1)">+</button>
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      <div class="field-wrap">
+        <div class="field-label" onclick="toggleSection('sec-victory-countdown')">
+          <span class="toggle-icon" id="icon-sec-victory-countdown">+</span>Countdown End Sound
+          <span style="opacity:.6;font-weight:400;text-transform:none;letter-spacing:0">— optional</span>
+        </div>
+        <div class="collapsible-body collapsed" id="sec-victory-countdown">
+          <div class="loop-row" style="margin-bottom:.5rem">
+            <label class="loop-label">
+              <input type="checkbox" id="countdown-end-enabled-chk" checked
+                     onchange="toggleSoundEnabled('countdown', this.checked)">
+              <span class="loop-track"><span class="loop-knob"></span></span>
+              Play countdown end sound
+            </label>
+          </div>
+          <div style="display:flex;gap:.5rem;align-items:center">
+            <label class="file-lbl" for="countdown-end-input" id="countdown-end-lbl" style="flex:1;margin:0">
+              🔔 Countdown end sound (default)
+            </label>
+            <button id="countdown-end-clear-btn" onclick="clearCustomSound('countdown')"
+              style="display:none;padding:.5rem .75rem;border-radius:10px;border:1px solid var(--border);
+                     background:var(--surface);color:var(--text-dim);cursor:pointer;font-size:.75rem;
+                     white-space:nowrap">✕ Clear</button>
+          </div>
+          <input type="file" id="countdown-end-input" accept="audio/*" style="display:none"
+                 onchange="onCustomSoundChosen(this, 'countdown')">
+        </div>
+      </div>
     </div>
 
-    <!-- Music source -->
+    <!-- ── VOTING TAB ── -->
+    <div class="tab-section" data-tab="voting">
+      <div class="field-wrap">
+        <div class="field-label" onclick="toggleSection('sec-vote-title')">
+          <span class="toggle-icon" id="icon-sec-vote-title">−</span>Display Title
+        </div>
+        <div class="collapsible-body" id="sec-vote-title">
+          <input class="text-input" id="vote-title" type="text" maxlength="42"
+                 placeholder="Pick Your Favourite…  /  Best Meme…">
+        </div>
+      </div>
+
+      <div class="field-wrap">
+        <div class="field-label" onclick="toggleSection('sec-vote-duration')">
+          <span class="toggle-icon" id="icon-sec-vote-duration">−</span>Duration
+        </div>
+        <div class="collapsible-body" id="sec-vote-duration">
+          <div class="time-row">
+            <div class="time-unit">
+              <input type="number" id="vote-h" min="0" max="23" value="0">
+              <label>HH</label>
+              <div class="num-arrows">
+                <button class="num-arrow" onclick="nudge('vote-h',-1)">−</button>
+                <button class="num-arrow" onclick="nudge('vote-h', 1)">+</button>
+              </div>
+            </div>
+            <span class="time-sep">:</span>
+            <div class="time-unit">
+              <input type="number" id="vote-m" min="0" max="59" value="2">
+              <label>MM</label>
+              <div class="num-arrows">
+                <button class="num-arrow" onclick="nudge('vote-m',-1)">−</button>
+                <button class="num-arrow" onclick="nudge('vote-m', 1)">+</button>
+              </div>
+            </div>
+            <span class="time-sep">:</span>
+            <div class="time-unit">
+              <input type="number" id="vote-s" min="0" max="59" value="0">
+              <label>SS</label>
+              <div class="num-arrows">
+                <button class="num-arrow" onclick="nudge('vote-s',-1)">−</button>
+                <button class="num-arrow" onclick="nudge('vote-s', 1)">+</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="field-wrap">
+        <div class="field-label" onclick="toggleSection('sec-voting')">
+          <span class="toggle-icon" id="icon-sec-voting">−</span>Images
+        </div>
+        <div class="collapsible-body" id="sec-voting">
+          <div style="display:flex;gap:.5rem;align-items:center">
+            <label class="file-lbl" for="vote-img-input" id="vote-img-lbl" style="flex:1;margin:0">
+              🖼 Click to choose 2+ images to vote on…
+            </label>
+            <button id="vote-img-clear-btn" onclick="clearVoteImages()"
+              style="display:none;padding:.5rem .75rem;border-radius:10px;border:1px solid var(--border);
+                     background:var(--surface);color:var(--text-dim);cursor:pointer;font-size:.75rem;
+                     white-space:nowrap">✕ Remove</button>
+          </div>
+          <input type="file" id="vote-img-input" accept="image/*" multiple style="display:none" onchange="onVoteImagesChosen(this)">
+          <div id="vote-img-grid" style="display:none;grid-template-columns:repeat(auto-fill,minmax(60px,1fr));gap:.4rem;margin-top:.6rem"></div>
+          <div id="voting-config-note" style="display:none;font-size:.7rem;color:var(--text-dim);background:rgba(255,68,102,.08);
+               border:1px solid rgba(255,68,102,.25);border-radius:8px;padding:.5rem .7rem;margin-top:.6rem;line-height:1.5">
+            ⚠ Voting isn't connected to a backend yet — set <code>FIREBASE_CONFIG</code> near the top of the &lt;script&gt; tag in index.html.
+          </div>
+        </div>
+      </div>
+
+      <div class="field-wrap">
+        <div class="field-label" onclick="toggleSection('sec-victory-voting')">
+          <span class="toggle-icon" id="icon-sec-victory-voting">+</span>Voting End Sound
+          <span style="opacity:.6;font-weight:400;text-transform:none;letter-spacing:0">— optional</span>
+        </div>
+        <div class="collapsible-body collapsed" id="sec-victory-voting">
+          <div style="font-size:.7rem;color:var(--text-dim);margin-bottom:.6rem;line-height:1.5">
+            Applies only to this device — remote voters still hear the default voting-end sound
+            on their own screens either way.
+          </div>
+          <div class="loop-row" style="margin-bottom:.5rem">
+            <label class="loop-label">
+              <input type="checkbox" id="voting-end-enabled-chk" checked
+                     onchange="toggleSoundEnabled('voting', this.checked)">
+              <span class="loop-track"><span class="loop-knob"></span></span>
+              Play voting end sound
+            </label>
+          </div>
+          <div style="display:flex;gap:.5rem;align-items:center">
+            <label class="file-lbl" for="voting-end-input" id="voting-end-lbl" style="flex:1;margin:0">
+              🎉 Voting end sound (default)
+            </label>
+            <button id="voting-end-clear-btn" onclick="clearCustomSound('voting')"
+              style="display:none;padding:.5rem .75rem;border-radius:10px;border:1px solid var(--border);
+                     background:var(--surface);color:var(--text-dim);cursor:pointer;font-size:.75rem;
+                     white-space:nowrap">✕ Clear</button>
+          </div>
+          <input type="file" id="voting-end-input" accept="audio/*" style="display:none"
+                 onchange="onCustomSoundChosen(this, 'voting')">
+        </div>
+      </div>
+    </div>
+
+    <!-- ── WHEELS TAB ── -->
+    <div class="tab-section" data-tab="wheels">
+      <div class="field-wrap">
+        <div class="field-label" onclick="toggleSection('sec-wheel-presets')">
+          <span class="toggle-icon" id="icon-sec-wheel-presets">−</span>Preset Wheels
+        </div>
+        <div class="collapsible-body" id="sec-wheel-presets">
+          <div id="wheel-preset-row" style="display:flex;gap:.5rem;flex-wrap:wrap"></div>
+        </div>
+      </div>
+
+      <div class="field-wrap">
+        <div class="field-label" onclick="toggleSection('sec-wheel-title')">
+          <span class="toggle-icon" id="icon-sec-wheel-title">−</span>Wheel Title
+        </div>
+        <div class="collapsible-body" id="sec-wheel-title">
+          <input class="text-input" id="wheel-title" type="text" maxlength="42"
+                 placeholder="Who's buying pizza?  /  Pick a punishment…">
+        </div>
+      </div>
+
+      <div class="field-wrap">
+        <div class="field-label" onclick="toggleSection('sec-wheel-options')">
+          <span class="toggle-icon" id="icon-sec-wheel-options">−</span>Options
+        </div>
+        <div class="collapsible-body" id="sec-wheel-options">
+          <div style="display:flex;gap:.5rem;margin-bottom:.6rem">
+            <input class="text-input" id="wheel-opt-input" type="text" style="flex:1;font-weight:400"
+                   placeholder="Type an option, press Enter…"
+                   onkeydown="if(event.key==='Enter'){event.preventDefault();addWheelOption();}">
+            <button onclick="addWheelOption()"
+              style="padding:.6rem 1rem;border-radius:10px;border:1px solid var(--accent);background:rgba(0,212,255,.1);
+                     color:var(--accent);cursor:pointer;font-size:.8rem;white-space:nowrap">+ Add</button>
+          </div>
+          <div id="wheel-opt-list"></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:.4rem">
+            <span id="wheel-opt-count" style="font-size:.68rem;color:var(--text-dim)">0 options</span>
+            <button onclick="clearWheelOptions()"
+              style="padding:.35rem .7rem;border-radius:8px;border:1px solid var(--border);background:var(--surface);
+                     color:var(--text-dim);cursor:pointer;font-size:.7rem">✕ Clear All</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="loop-row">
+        <label class="loop-label">
+          <input type="checkbox" id="wheel-no-repeat-chk">
+          <span class="loop-track"><span class="loop-knob"></span></span>
+          Remove winner after each spin
+        </label>
+      </div>
+    </div>
+
+    <!-- ── GLOBAL SETTINGS (apply regardless of tab) ── -->
     <div class="field-wrap">
       <div class="field-label" onclick="toggleSection('sec-music')">
         <span class="toggle-icon" id="icon-sec-music">−</span>Music Source
@@ -662,7 +908,6 @@
       </div>
     </div>
 
-    <!-- Loop toggle -->
     <div class="loop-row">
       <label class="loop-label">
         <input type="checkbox" id="loop-chk" checked>
@@ -671,7 +916,6 @@
       </label>
     </div>
 
-    <!-- Volume -->
     <div class="field-wrap">
       <div class="field-label" onclick="toggleSection('sec-volume')">
         <span class="toggle-icon" id="icon-sec-volume">−</span>Volume
@@ -686,7 +930,6 @@
       </div>
     </div>
 
-    <!-- Theme -->
     <div class="field-wrap">
       <div class="field-label" onclick="toggleSection('sec-theme')">
         <span class="toggle-icon" id="icon-sec-theme">−</span>Theme
@@ -705,7 +948,6 @@
       </div>
     </div>
 
-    <!-- Background image -->
     <div class="field-wrap">
       <div class="field-label" onclick="toggleSection('sec-bgimage')">
         <span class="toggle-icon" id="icon-sec-bgimage">−</span>Background Image
@@ -725,90 +967,13 @@
       </div>
     </div>
 
-    <!-- Image voting -->
-    <div class="field-wrap">
-      <div class="field-label" onclick="toggleSection('sec-voting')">
-        <span class="toggle-icon" id="icon-sec-voting">−</span>Image Voting
-        <span style="opacity:.6;font-weight:400;text-transform:none;letter-spacing:0">— optional, uses the duration above</span>
-      </div>
-      <div class="collapsible-body" id="sec-voting">
-        <div style="display:flex;gap:.5rem;align-items:center">
-          <label class="file-lbl" for="vote-img-input" id="vote-img-lbl" style="flex:1;margin:0">
-            🖼 Click to choose 2+ images to vote on…
-          </label>
-          <button id="vote-img-clear-btn" onclick="clearVoteImages()"
-            style="display:none;padding:.5rem .75rem;border-radius:10px;border:1px solid var(--border);
-                   background:var(--surface);color:var(--text-dim);cursor:pointer;font-size:.75rem;
-                   white-space:nowrap">✕ Remove</button>
-        </div>
-        <input type="file" id="vote-img-input" accept="image/*" multiple style="display:none" onchange="onVoteImagesChosen(this)">
-        <div id="vote-img-grid" style="display:none;grid-template-columns:repeat(auto-fill,minmax(60px,1fr));gap:.4rem;margin-top:.6rem"></div>
-        <div id="voting-config-note" style="display:none;font-size:.7rem;color:var(--text-dim);background:rgba(255,68,102,.08);
-             border:1px solid rgba(255,68,102,.25);border-radius:8px;padding:.5rem .7rem;margin-top:.6rem;line-height:1.5">
-          ⚠ Voting isn't connected to a backend yet — set <code>FIREBASE_CONFIG</code> near the top of the &lt;script&gt; tag in index.html.
-        </div>
-        <button class="start-btn" id="start-vote-btn" onclick="startVoting()"
-          style="display:none;margin-top:.75rem;background:linear-gradient(135deg,var(--accent2),var(--danger))">🗳 START VOTING</button>
-      </div>
-    </div>
-
-    <!-- Victory sounds -->
-    <div class="field-wrap">
-      <div class="field-label" onclick="toggleSection('sec-victory')">
-        <span class="toggle-icon" id="icon-sec-victory">+</span>Victory Sounds
-        <span style="opacity:.6;font-weight:400;text-transform:none;letter-spacing:0">— optional</span>
-      </div>
-      <div class="collapsible-body collapsed" id="sec-victory">
-        <div style="font-size:.7rem;color:var(--text-dim);margin-bottom:.6rem;line-height:1.5">
-          Replace the default sounds played when a countdown or vote finishes, or turn either
-          one off. Both settings apply only to this device — remote voters still hear the
-          default voting-end sound on their own screens either way.
-        </div>
-
-        <div class="loop-row" style="margin-bottom:.5rem">
-          <label class="loop-label">
-            <input type="checkbox" id="countdown-end-enabled-chk" checked
-                   onchange="toggleSoundEnabled('countdown', this.checked)">
-            <span class="loop-track"><span class="loop-knob"></span></span>
-            Play countdown end sound
-          </label>
-        </div>
-        <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.6rem">
-          <label class="file-lbl" for="countdown-end-input" id="countdown-end-lbl" style="flex:1;margin:0">
-            🔔 Countdown end sound (default)
-          </label>
-          <button id="countdown-end-clear-btn" onclick="clearCustomSound('countdown')"
-            style="display:none;padding:.5rem .75rem;border-radius:10px;border:1px solid var(--border);
-                   background:var(--surface);color:var(--text-dim);cursor:pointer;font-size:.75rem;
-                   white-space:nowrap">✕ Clear</button>
-        </div>
-        <input type="file" id="countdown-end-input" accept="audio/*" style="display:none"
-               onchange="onCustomSoundChosen(this, 'countdown')">
-
-        <div class="loop-row" style="margin-bottom:.5rem;margin-top:1rem">
-          <label class="loop-label">
-            <input type="checkbox" id="voting-end-enabled-chk" checked
-                   onchange="toggleSoundEnabled('voting', this.checked)">
-            <span class="loop-track"><span class="loop-knob"></span></span>
-            Play voting end sound
-          </label>
-        </div>
-        <div style="display:flex;gap:.5rem;align-items:center">
-          <label class="file-lbl" for="voting-end-input" id="voting-end-lbl" style="flex:1;margin:0">
-            🎉 Voting end sound (default)
-          </label>
-          <button id="voting-end-clear-btn" onclick="clearCustomSound('voting')"
-            style="display:none;padding:.5rem .75rem;border-radius:10px;border:1px solid var(--border);
-                   background:var(--surface);color:var(--text-dim);cursor:pointer;font-size:.75rem;
-                   white-space:nowrap">✕ Clear</button>
-        </div>
-        <input type="file" id="voting-end-input" accept="audio/*" style="display:none"
-               onchange="onCustomSoundChosen(this, 'voting')">
-      </div>
-    </div>
-
-    <button class="resume-btn" id="resume-btn" onclick="resumeCountdown()">▶ RESUME COUNTDOWN</button>
-    <button class="start-btn" id="start-btn" onclick="startCountdown()">START COUNTDOWN</button>
+    <!-- Per-tab action buttons -->
+    <button class="resume-btn tab-section" data-tab="countdown" id="resume-btn" onclick="resumeCountdown()">▶ RESUME COUNTDOWN</button>
+    <button class="start-btn tab-section active" data-tab="countdown" id="start-btn" onclick="startCountdown()">START COUNTDOWN</button>
+    <button class="start-btn tab-section" data-tab="voting" id="start-vote-btn" onclick="startVoting()"
+      style="display:none;background:linear-gradient(135deg,var(--accent2),var(--danger))">🗳 START VOTING</button>
+    <button class="start-btn tab-section" data-tab="wheels" id="start-wheel-btn" onclick="startWheel()"
+      style="display:none;background:linear-gradient(135deg,var(--accent2),var(--accent))">🎡 OPEN WHEEL</button>
   </div>
 </div>
 
@@ -842,7 +1007,7 @@
 
   <div style="display:flex;gap:.75rem;flex-wrap:wrap;justify-content:center">
     <button class="done-btn alt" id="va-reveal-btn" onclick="revealResults()">🔓 Reveal Results To Voters</button>
-    <button class="done-btn" onclick="goSetup()">⚙ New Setup</button>
+    <button class="done-btn" onclick="goSetup('voting')">⚙ New Setup</button>
   </div>
   <!-- Persistent fallback for the tiebreak button — stays available even if
        the tie overlay gets dismissed (e.g. an accidental click-off) -->
@@ -866,6 +1031,31 @@
   <div class="ring-wrap" id="v-ring-wrap"></div>
   <div id="v-status" style="font-size:.8rem;color:var(--text-dim);margin-bottom:1.25rem;letter-spacing:.04em"></div>
   <div id="v-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.85rem;max-width:720px;width:100%"></div>
+</div>
+
+<!-- ═══════════════════════════════
+     WHEEL SCREEN
+═══════════════════════════════ -->
+<div id="screen-wheel" style="position:fixed;inset:0;z-index:10;display:none;flex-direction:column;
+     align-items:center;justify-content:center;padding:1.5rem 1rem;overflow-y:auto;text-align:center">
+  <div class="cd-title" id="wheel-title-lbl">WHEEL</div>
+
+  <div class="wheel-stage">
+    <div class="wheel-pointer">▼</div>
+    <canvas id="wheel-canvas" width="440" height="440" onclick="spinWheel()"></canvas>
+  </div>
+
+  <div id="wheel-result">
+    <div class="done-title" id="wheel-result-text" style="font-size:clamp(1.4rem,5vw,2.4rem)"></div>
+  </div>
+
+  <div class="ctrl-row" style="margin-top:1.25rem">
+    <button class="ctrl-btn" onclick="resetWheel()" title="Restore all options">↺</button>
+    <button class="ctrl-btn big" id="wheel-spin-btn" onclick="spinWheel()" title="Spin">🎡</button>
+    <button class="ctrl-btn" onclick="goSetup('wheels')" title="Settings">⚙</button>
+  </div>
+
+  <button class="back-lnk" onclick="goSetup('wheels')">← Setup</button>
 </div>
 
 <!-- ═══════════════════════════════
@@ -1002,6 +1192,29 @@ let audioBlob    = null;
 let audioFiles   = [];   // all loaded files
 let audioIndex   = 0;    // current track index
 let particleHues = [196, 272];
+let activeTab    = 'countdown'; // 'countdown' | 'voting' | 'wheels'
+
+// ══════════════════════════════════════════
+//  TABS
+// ══════════════════════════════════════════
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tab-section').forEach(p => p.classList.toggle('active', p.dataset.tab === tab));
+  updateTabButtons();
+}
+
+// The 4 action buttons (resume/start-countdown/start-vote/start-wheel) each
+// have their own "should I even be offered" condition on top of "is my tab
+// active" -- recomputed centrally here instead of scattered inline style
+// writes, so the two conditions can never drift out of sync.
+function updateTabButtons() {
+  document.getElementById('start-btn').style.display = activeTab === 'countdown' ? 'block' : 'none';
+  const resumeAvailable = document.getElementById('resume-btn').classList.contains('show');
+  document.getElementById('resume-btn').style.display = (activeTab === 'countdown' && resumeAvailable) ? 'block' : 'none';
+  document.getElementById('start-vote-btn').style.display = (activeTab === 'voting' && voteImages.length >= 2) ? 'block' : 'none';
+  document.getElementById('start-wheel-btn').style.display = (activeTab === 'wheels' && wheelOptions.length >= 2) ? 'block' : 'none';
+}
 
 // ══════════════════════════════════════════
 //  END SOUNDS
@@ -1190,7 +1403,7 @@ function clampInput(el) {
   el.value = v;
 }
 
-['inp-h','inp-m','inp-s'].forEach(id =>
+['inp-h','inp-m','inp-s','vote-h','vote-m','vote-s'].forEach(id =>
   document.getElementById(id).addEventListener('change', function() { clampInput(this); })
 );
 
@@ -1703,7 +1916,7 @@ async function startTiebreakerVote(tiedImages) {
   closeCelebrationWinner();
   pendingTieImages = null;
   document.getElementById('va-tiebreak-btn').style.display = 'none';
-  const titleInput = document.getElementById('inp-title');
+  const titleInput = document.getElementById('vote-title');
   if (!/\(tiebreaker\)/i.test(titleInput.value)) {
     titleInput.value = (titleInput.value.trim() || 'VOTE NOW') + ' (Tiebreaker)';
   }
@@ -1791,6 +2004,7 @@ function promptSettings() {
   document.getElementById('screen-setup').classList.remove('hidden');
   document.getElementById('fullscreen-btn').classList.remove('show', 'prominent');
   document.getElementById('float-vol').classList.remove('show');
+  switchTab('countdown');
 }
 
 function resumeCountdown() {
@@ -1807,7 +2021,7 @@ function resumeCountdown() {
   resumeMusic();
 }
 
-function goSetup() {
+function goSetup(tab) {
   clearInterval(ticker); ticker = null;
   totalSecs = 0; remaining = 0;
   stopMusic();
@@ -1817,7 +2031,9 @@ function goSetup() {
   document.getElementById('screen-setup').classList.remove('hidden');
   document.getElementById('fullscreen-btn').classList.remove('show', 'prominent');
   document.getElementById('float-vol').classList.remove('show');
+  document.getElementById('screen-wheel').style.display = 'none';
   leaveVoteScreens();
+  switchTab(tab || 'countdown');
 }
 
 function leaveVoteScreens() {
@@ -1911,7 +2127,217 @@ function renderVoteImageGrid() {
         style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;border:1px solid var(--border);
                background:rgba(6,6,15,.92);color:var(--text-dim);font-size:.7rem;cursor:pointer;line-height:1;padding:0">✕</button>
     </div>`).join('');
-  document.getElementById('start-vote-btn').style.display = voteImages.length >= 2 ? 'block' : 'none';
+  updateTabButtons();
+}
+
+// ══════════════════════════════════════════
+//  WHEELS
+// ══════════════════════════════════════════
+let wheelOptions  = [];    // [{ text, color }] -- live set, shrinks in no-repeat mode
+let wheelSnapshot = [];    // full set as it was when the wheel screen opened, for Reset
+let wheelRotation = 0;     // accumulated CSS rotation (deg) -- never reset, so
+                            // spins always move forward with no backward snap
+let wheelSpinning = false;
+
+const WHEEL_PRESETS = {
+  d6:    { name: '1 – 6',    options: ['1', '2', '3', '4', '5', '6'] },
+  yesno: { name: 'Yes / No', options: ['Yes', 'No'] },
+};
+
+function hslToHex(h, s, l) {
+  s /= 100; l /= 100;
+  const k = n => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  const toHex = x => Math.round(255 * x).toString(16).padStart(2, '0');
+  return `#${toHex(f(0))}${toHex(f(8))}${toHex(f(4))}`;
+}
+
+// Golden-angle hue spacing keeps consecutive entries visually distinct no
+// matter how many there are, instead of cycling a small fixed palette.
+function wheelColorFor(i) {
+  return hslToHex((i * 137.508) % 360, 70, 55);
+}
+
+function textColorFor(hex) {
+  const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.6 ? '#0a0a12' : '#ffffff';
+}
+
+function renderWheelPresets() {
+  const row = document.getElementById('wheel-preset-row');
+  row.innerHTML = Object.entries(WHEEL_PRESETS).map(([key, p]) => `
+    <button onclick="loadWheelPreset('${key}')"
+      style="padding:.5rem .9rem;border-radius:10px;border:1px solid var(--border);background:var(--surface);
+             color:var(--text-dim);cursor:pointer;font-size:.78rem">${escapeHtml(p.name)}</button>`).join('');
+}
+
+function loadWheelPreset(key) {
+  const p = WHEEL_PRESETS[key];
+  if (!p) return;
+  wheelOptions = p.options.map((text, i) => ({ text, color: wheelColorFor(i) }));
+  document.getElementById('wheel-title').value = p.name;
+  renderWheelOptions();
+}
+
+function addWheelOption() {
+  const inp  = document.getElementById('wheel-opt-input');
+  const text = inp.value.trim();
+  if (!text) return;
+  wheelOptions.push({ text, color: wheelColorFor(wheelOptions.length) });
+  inp.value = '';
+  inp.focus();
+  renderWheelOptions();
+}
+
+function removeWheelOption(i) {
+  wheelOptions.splice(i, 1);
+  renderWheelOptions();
+}
+
+function setWheelOptionColor(i, color) {
+  if (wheelOptions[i]) wheelOptions[i].color = color;
+}
+
+function clearWheelOptions() {
+  if (!wheelOptions.length) return;
+  if (!confirm('Clear all wheel options?')) return;
+  wheelOptions = [];
+  renderWheelOptions();
+}
+
+function renderWheelOptions() {
+  const list = document.getElementById('wheel-opt-list');
+  list.innerHTML = wheelOptions.map((o, i) => `
+    <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem">
+      <input type="color" value="${o.color}" onchange="setWheelOptionColor(${i}, this.value)" title="Pick a colour"
+        style="width:28px;height:28px;border:1px solid var(--border);border-radius:6px;padding:0;cursor:pointer;
+               flex-shrink:0;background:none">
+      <span style="flex:1;font-size:.85rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;
+                   white-space:nowrap">${escapeHtml(o.text)}</span>
+      <button onclick="removeWheelOption(${i})" title="Remove"
+        style="width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--surface);
+               color:var(--text-dim);cursor:pointer;font-size:.7rem;flex-shrink:0">✕</button>
+    </div>`).join('');
+  document.getElementById('wheel-opt-count').textContent =
+    wheelOptions.length + (wheelOptions.length === 1 ? ' option' : ' options');
+  updateTabButtons();
+}
+
+function drawWheel() {
+  const canvas = document.getElementById('wheel-canvas');
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  const cx = w / 2, cy = h / 2, r = w / 2 - 4;
+  ctx.clearRect(0, 0, w, h);
+  const n = wheelOptions.length;
+  if (!n) return;
+  const segAngle = (2 * Math.PI) / n;
+  for (let i = 0; i < n; i++) {
+    const start = i * segAngle - Math.PI / 2;
+    const end   = start + segAngle;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, start, end);
+    ctx.closePath();
+    ctx.fillStyle = wheelOptions[i].color;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(6,6,15,.4)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(start + segAngle / 2);
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = textColorFor(wheelOptions[i].color);
+    ctx.font = '600 15px Inter, sans-serif';
+    const label = wheelOptions[i].text.length > 18 ? wheelOptions[i].text.slice(0, 17) + '…' : wheelOptions[i].text;
+    ctx.fillText(label, r - 14, 0);
+    ctx.restore();
+  }
+  ctx.beginPath();
+  ctx.arc(cx, cy, 22, 0, 2 * Math.PI);
+  ctx.fillStyle = '#06060f';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,.2)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+function startWheel() {
+  if (wheelOptions.length < 2) { alert('Add at least 2 options to spin the wheel.'); return; }
+  wheelSnapshot = wheelOptions.map(o => ({ ...o }));
+  const title = document.getElementById('wheel-title').value.trim() || 'SPIN THE WHEEL';
+  document.getElementById('wheel-title-lbl').textContent = title;
+  document.getElementById('screen-setup').classList.add('hidden');
+  document.getElementById('screen-wheel').style.display = 'flex';
+  document.getElementById('fullscreen-btn').classList.add('show');
+  document.getElementById('float-vol').classList.add('show');
+  document.getElementById('wheel-result').classList.remove('animate');
+  document.getElementById('wheel-result-text').textContent = '';
+  wheelRotation = 0;
+  document.getElementById('wheel-canvas').style.transition = 'none';
+  document.getElementById('wheel-canvas').style.transform = 'rotate(0deg)';
+  drawWheel();
+  requestAnimationFrame(() => {
+    document.getElementById('wheel-canvas').style.transition = '';
+  });
+  startMusic();
+}
+
+function spinWheel() {
+  if (wheelSpinning || wheelOptions.length < 2) return;
+  wheelSpinning = true;
+  document.getElementById('wheel-result').classList.remove('animate');
+
+  const n = wheelOptions.length;
+  const winnerIndex = Math.floor(Math.random() * n);
+  const segAngleDeg = 360 / n;
+  const offset = 0.15 + Math.random() * 0.7; // land somewhere within the segment, not on its edge
+  let targetMod = (-(winnerIndex + offset) * segAngleDeg) % 360;
+  if (targetMod < 0) targetMod += 360;
+
+  const currentMod = ((wheelRotation % 360) + 360) % 360;
+  let delta = targetMod - currentMod;
+  if (delta <= 0) delta += 360;
+  const extraSpins = 6 + Math.floor(Math.random() * 3);
+  wheelRotation += delta + extraSpins * 360;
+
+  document.getElementById('wheel-canvas').style.transform = `rotate(${wheelRotation}deg)`;
+
+  setTimeout(() => {
+    wheelSpinning = false;
+    onWheelLanded(winnerIndex);
+  }, 5300);
+}
+
+function onWheelLanded(winnerIndex) {
+  const winner = wheelOptions[winnerIndex];
+  if (!winner) return;
+  startConfetti();
+  setTimeout(stopConfetti, 3500);
+  const el = document.getElementById('wheel-result');
+  document.getElementById('wheel-result-text').textContent = '🎉 ' + winner.text;
+  el.classList.remove('animate');
+  void el.offsetWidth;
+  el.classList.add('animate');
+
+  if (document.getElementById('wheel-no-repeat-chk').checked) {
+    wheelOptions.splice(winnerIndex, 1);
+    drawWheel();
+  }
+}
+
+// Restores whichever options "no repeat" mode has removed, back to the full
+// set this wheel screen was opened with.
+function resetWheel() {
+  wheelOptions = wheelSnapshot.map(o => ({ ...o }));
+  drawWheel();
+  document.getElementById('wheel-result').classList.remove('animate');
+  document.getElementById('wheel-result-text').textContent = '';
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -1928,14 +2354,14 @@ async function startVoting() {
     alert("Voting isn't connected to a backend yet — set FIREBASE_CONFIG near the top of the <script> tag in index.html.");
     return;
   }
-  const h = parseInt(document.getElementById('inp-h').value, 10) || 0;
-  const m = parseInt(document.getElementById('inp-m').value, 10) || 0;
-  const s = parseInt(document.getElementById('inp-s').value, 10) || 0;
+  const h = parseInt(document.getElementById('vote-h').value, 10) || 0;
+  const m = parseInt(document.getElementById('vote-m').value, 10) || 0;
+  const s = parseInt(document.getElementById('vote-s').value, 10) || 0;
   const durationSecs = h * 3600 + m * 60 + s;
   if (durationSecs <= 0) { alert('Please set a duration greater than zero!'); return; }
   if (voteImages.length < 2) { alert('Please add at least 2 images to vote on.'); return; }
 
-  const title  = document.getElementById('inp-title').value.trim() || 'VOTE NOW';
+  const title  = document.getElementById('vote-title').value.trim() || 'VOTE NOW';
   const pollId = genPollId();
   const endsAtMs   = Date.now() + durationSecs * 1000;
   const expireAtMs = endsAtMs + 60 * 60 * 1000; // auto-deleted ~1hr after voting ends, not from creation --
@@ -2183,6 +2609,9 @@ function castVote(imgId) {
     .catch(e => alert('Could not register your vote: ' + e.message));
 }
 
+renderWheelPresets();
+renderWheelOptions();
+updateTabButtons();
 checkVoteParam();
 
 // ══════════════════════════════════════════
