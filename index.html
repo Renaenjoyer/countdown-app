@@ -1160,6 +1160,14 @@
       <div style="font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.75rem">
         Entries
       </div>
+      <div style="display:flex;gap:.4rem;margin-bottom:.6rem">
+        <input class="text-input" id="wheel-drawer-opt-input" type="text" style="flex:1;min-width:0;font-weight:400;font-size:.8rem;padding:.5rem .6rem"
+               placeholder="Add an option…"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();addWheelOption('wheel-drawer-opt-input');}">
+        <button onclick="addWheelOption('wheel-drawer-opt-input')"
+          style="padding:.5rem .7rem;border-radius:8px;border:1px solid var(--accent);background:rgba(0,212,255,.1);
+                 color:var(--accent);cursor:pointer;font-size:.75rem;white-space:nowrap;flex-shrink:0">+ Add</button>
+      </div>
       <div id="wheel-drawer-list"></div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:.5rem">
         <span id="wheel-drawer-count" style="font-size:.66rem;color:var(--text-dim)">0 options</span>
@@ -2376,8 +2384,10 @@ function focusWheelOptionInput() {
   inp.focus();
 }
 
-function addWheelOption() {
-  const inp  = document.getElementById('wheel-opt-input');
+// inputId lets this serve both the setup tab's input and the spin screen's
+// floating drawer input, which are separate elements.
+function addWheelOption(inputId) {
+  const inp  = document.getElementById(inputId || 'wheel-opt-input');
   const text = inp.value.trim();
   if (!text) return;
   wheelOptions.push({ text, color: wheelColorFor(wheelOptions.length), weight: 1 });
