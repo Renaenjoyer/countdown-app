@@ -2559,7 +2559,15 @@ function drawWheelOnCanvas(canvas, options) {
     ctx.lineWidth = 2;
     ctx.stroke();
 
+    // Clip the label to this slice's own wedge, so a thin slice (e.g. a
+    // low-weight entry like a 1% chance) can't spill its text into the
+    // slices next to it.
     ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, start, end);
+    ctx.closePath();
+    ctx.clip();
     ctx.translate(cx, cy);
     ctx.rotate(start + segAngle / 2);
     ctx.textAlign = 'right';
