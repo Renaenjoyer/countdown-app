@@ -372,7 +372,7 @@
     }
     .wheel-preview-canvas {
       width: min(220px, 50vmin); height: min(220px, 50vmin);
-      border-radius: 50%; cursor: default;
+      border-radius: 50%; cursor: pointer;
       filter: drop-shadow(0 0 14px rgba(0,212,255,.25));
     }
     #wheel-result-overlay.animate .done-title { animation: wheel-result-pop .5s cubic-bezier(.34,1.56,.64,1), glow-pulse 1.2s ease-in-out infinite alternate; }
@@ -863,7 +863,8 @@
         </div>
         <div class="collapsible-body" id="sec-wheel-preview">
           <div class="wheel-stage" style="margin-bottom:0">
-            <canvas id="wheel-preview-canvas" class="wheel-preview-canvas" width="260" height="260"></canvas>
+            <canvas id="wheel-preview-canvas" class="wheel-preview-canvas" width="260" height="260"
+                    onclick="focusWheelOptionInput()" title="Click to add an option"></canvas>
           </div>
         </div>
       </div>
@@ -2261,6 +2262,16 @@ function loadWheelPreset(key) {
   wheelOptions = p.options.map((text, i) => ({ text, color: wheelColorFor(i) }));
   document.getElementById('wheel-title').value = p.name;
   renderWheelOptions();
+}
+
+// Clicking the (possibly empty) preview wheel jumps straight to adding an
+// option, instead of just being a static picture with a hint that does nothing.
+function focusWheelOptionInput() {
+  const body = document.getElementById('sec-wheel-options');
+  if (body.classList.contains('collapsed')) toggleSection('sec-wheel-options');
+  const inp = document.getElementById('wheel-opt-input');
+  inp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  inp.focus();
 }
 
 function addWheelOption() {
