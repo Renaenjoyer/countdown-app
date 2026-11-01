@@ -2352,7 +2352,26 @@ function drawWheelOnCanvas(canvas, options) {
   const cx = w / 2, cy = h / 2, r = w / 2 - 4;
   ctx.clearRect(0, 0, w, h);
   const n = options.length;
-  if (!n) return;
+
+  if (!n) {
+    // Empty state -- still show a wheel shape rather than a blank canvas.
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+    ctx.fillStyle = 'rgba(255,255,255,.04)';
+    ctx.fill();
+    ctx.setLineDash([6, 6]);
+    ctx.strokeStyle = 'rgba(255,255,255,.18)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(255,255,255,.35)';
+    ctx.font = '600 13px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Add options…', cx, cy);
+    return;
+  }
+
   const segAngle = (2 * Math.PI) / n;
   for (let i = 0; i < n; i++) {
     const start = i * segAngle - Math.PI / 2;
