@@ -2329,6 +2329,22 @@ function toggleWheelDrawer() {
 const WHEEL_PRESETS = {
   d6:    { name: '1 – 6',    options: ['1', '2', '3', '4', '5', '6'] },
   yesno: { name: 'Yes / No', options: ['Yes', 'No'] },
+  risk: {
+    name: 'Risk Wheel',
+    options: [
+      { text: '+2 days',             weight: 11 },
+      { text: '-2 days',             weight: 11 },
+      { text: '+1 day',              weight: 11 },
+      { text: '-1 day',              weight: 11 },
+      { text: '+3000 Tokens',        weight: 11 },
+      { text: 'Two weeks of Galaxy', weight: 1  },
+      { text: '+1 day',              weight: 11 },
+      { text: '-3 days',             weight: 11 },
+      { text: '+3 days',             weight: 11 },
+      { text: '+1500 Tokens',        weight: 11 },
+      { text: 'Lose Prize',          weight: 1  },
+    ],
+  },
 };
 
 function hslToHex(h, s, l) {
