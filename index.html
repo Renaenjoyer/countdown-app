@@ -2259,7 +2259,13 @@ function renderWheelPresets() {
 function loadWheelPreset(key) {
   const p = WHEEL_PRESETS[key];
   if (!p) return;
-  wheelOptions = p.options.map((text, i) => ({ text, color: wheelColorFor(i) }));
+  // Each preset option is either a plain string (equal weight) or
+  // { text, weight } for a custom-sized slice.
+  wheelOptions = p.options.map((opt, i) => {
+    const text   = typeof opt === 'string' ? opt : opt.text;
+    const weight = typeof opt === 'string' ? 1 : (opt.weight || 1);
+    return { text, color: wheelColorFor(i), weight };
+  });
   document.getElementById('wheel-title').value = p.name;
   renderWheelOptions();
 }
@@ -2278,7 +2284,7 @@ function addWheelOption() {
   const inp  = document.getElementById('wheel-opt-input');
   const text = inp.value.trim();
   if (!text) return;
-  wheelOptions.push({ text, color: wheelColorFor(wheelOptions.length) });
+  wheelOptions.push({ text, color: wheelColorFor(wheelOptions.length), weight: 1 });
   inp.value = '';
   inp.focus();
   renderWheelOptions();
@@ -2297,7 +2303,7 @@ function addWheelOptionsBulk() {
   const ta = document.getElementById('wheel-bulk-input');
   const lines = ta.value.split('\n').map(l => l.trim()).filter(Boolean);
   if (!lines.length) return;
-  lines.forEach(text => wheelOptions.push({ text, color: wheelColorFor(wheelOptions.length) }));
+  lines.forEach(text => wheelOptions.push({ text, color: wheelColorFor(wheelOptions.length), weight: 1 }));
   ta.value = '';
   renderWheelOptions();
 }
@@ -2320,6 +2326,15 @@ function setWheelOptionText(i, text) {
   refreshWheelViews();
 }
 
+// Weight only commits on change (not oninput), so a full options-list
+// re-render here is fine -- every row's % label depends on every other
+// row's weight, so they all need to update together.
+function setWheelOptionWeight(i, weight) {
+  const w = Math.max(0.1, parseFloat(weight) || 1);
+  if (wheelOptions[i]) wheelOptions[i].weight = w;
+  renderWheelOptions();
+}
+
 function clearWheelOptions() {
   if (!wheelOptions.length) return;
   if (!confirm('Clear all wheel options?')) return;
@@ -2338,18 +2353,27 @@ function shuffleWheelOptions() {
 
 function renderWheelOptions() {
   const list = document.getElementById('wheel-opt-list');
-  list.innerHTML = wheelOptions.map((o, i) => `
-    <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem">
+  const totalWeight = wheelOptions.reduce((s, o) => s + (o.weight || 1), 0);
+  list.innerHTML = wheelOptions.map((o, i) => {
+    const pct = totalWeight ? Math.round((o.weight || 1) / totalWeight * 100) : 0;
+    return `
+    <div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.4rem">
       <input type="color" value="${o.color}" onchange="setWheelOptionColor(${i}, this.value)" title="Pick a colour"
-        style="width:28px;height:28px;border:1px solid var(--border);border-radius:6px;padding:0;cursor:pointer;
+        style="width:26px;height:26px;border:1px solid var(--border);border-radius:6px;padding:0;cursor:pointer;
                flex-shrink:0;background:none">
       <input type="text" value="${escapeHtml(o.text)}" oninput="setWheelOptionText(${i}, this.value)"
         style="flex:1;min-width:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;
                color:var(--text);padding:.4rem .6rem;font-size:.85rem;font-family:inherit">
+      <input type="number" value="${o.weight || 1}" min="0.1" step="0.1" onchange="setWheelOptionWeight(${i}, this.value)"
+        title="Relative weight — higher means a bigger slice and better odds"
+        style="width:42px;flex-shrink:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;
+               color:var(--text);padding:.4rem .2rem;font-size:.75rem;text-align:center">
+      <span style="font-size:.66rem;color:var(--text-dim);min-width:28px;text-align:right;flex-shrink:0">${pct}%</span>
       <button onclick="removeWheelOption(${i})" title="Remove"
-        style="width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--surface);
-               color:var(--text-dim);cursor:pointer;font-size:.7rem;flex-shrink:0">✕</button>
-    </div>`).join('');
+        style="width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface);
+               color:var(--text-dim);cursor:pointer;font-size:.65rem;flex-shrink:0">✕</button>
+    </div>`;
+  }).join('');
   document.getElementById('wheel-opt-count').textContent =
     wheelOptions.length + (wheelOptions.length === 1 ? ' option' : ' options');
   updateTabButtons();
@@ -2383,10 +2407,15 @@ function drawWheelOnCanvas(canvas, options) {
     return;
   }
 
-  const segAngle = (2 * Math.PI) / n;
+  // Segments are sized proportionally to each option's weight (defaults to
+  // 1, i.e. an equal share) rather than always splitting the circle evenly.
+  const totalWeight = options.reduce((s, o) => s + (o.weight || 1), 0);
+  let angleCursor = -Math.PI / 2;
   for (let i = 0; i < n; i++) {
-    const start = i * segAngle - Math.PI / 2;
+    const segAngle = ((options[i].weight || 1) / totalWeight) * 2 * Math.PI;
+    const start = angleCursor;
     const end   = start + segAngle;
+    angleCursor = end;
     ctx.beginPath();
     ctx.moveTo(cx, cy);
     ctx.arc(cx, cy, r, start, end);
@@ -2450,10 +2479,25 @@ function spinWheel() {
   document.getElementById('wheel-result-overlay').style.display = 'none';
 
   const n = wheelOptions.length;
-  const winnerIndex = Math.floor(Math.random() * n);
-  const segAngleDeg = 360 / n;
+  const totalWeight = wheelOptions.reduce((s, o) => s + (o.weight || 1), 0);
+
+  // Weighted random pick -- a heavier entry is proportionally more likely
+  // to win, matching the size of its slice on the wheel.
+  let r = Math.random() * totalWeight;
+  let winnerIndex = n - 1;
+  for (let i = 0, cum = 0; i < n; i++) {
+    cum += wheelOptions[i].weight || 1;
+    if (r < cum) { winnerIndex = i; break; }
+  }
+
+  let cumWeightBefore = 0;
+  for (let i = 0; i < winnerIndex; i++) cumWeightBefore += wheelOptions[i].weight || 1;
+  const segStartDeg = (cumWeightBefore / totalWeight) * 360;
+  const segSizeDeg  = ((wheelOptions[winnerIndex].weight || 1) / totalWeight) * 360;
   const offset = 0.15 + Math.random() * 0.7; // land somewhere within the segment, not on its edge
-  let targetMod = (-(winnerIndex + offset) * segAngleDeg) % 360;
+  const targetWithinSegDeg = segStartDeg + offset * segSizeDeg;
+
+  let targetMod = -targetWithinSegDeg % 360;
   if (targetMod < 0) targetMod += 360;
 
   const currentMod = ((wheelRotation % 360) + 360) % 360;
