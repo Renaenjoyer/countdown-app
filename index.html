@@ -367,8 +367,12 @@
       font-size: 2.1rem; line-height: 1; color: var(--accent); z-index: 2;
       filter: drop-shadow(0 0 10px var(--accent));
     }
-    #wheel-result { display: none; }
-    #wheel-result.animate { display: block; animation: wheel-result-pop .5s cubic-bezier(.34,1.56,.64,1); }
+    .wheel-preview-canvas {
+      width: min(220px, 50vmin); height: min(220px, 50vmin);
+      border-radius: 50%; cursor: default;
+      filter: drop-shadow(0 0 14px rgba(0,212,255,.25));
+    }
+    #wheel-result-overlay.animate .done-title { animation: wheel-result-pop .5s cubic-bezier(.34,1.56,.64,1), glow-pulse 1.2s ease-in-out infinite alternate; }
     @keyframes wheel-result-pop {
       from { opacity: 0; transform: scale(.7); }
       to   { opacity: 1; transform: scale(1); }
@@ -837,6 +841,17 @@
       </div>
 
       <div class="field-wrap">
+        <div class="field-label" onclick="toggleSection('sec-wheel-preview')">
+          <span class="toggle-icon" id="icon-sec-wheel-preview">−</span>Preview
+        </div>
+        <div class="collapsible-body" id="sec-wheel-preview">
+          <div class="wheel-stage" style="margin-bottom:0">
+            <canvas id="wheel-preview-canvas" class="wheel-preview-canvas" width="260" height="260"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="field-wrap">
         <div class="field-label" onclick="toggleSection('sec-wheel-options')">
           <span class="toggle-icon" id="icon-sec-wheel-options">−</span>Options
         </div>
@@ -852,19 +867,16 @@
           <div id="wheel-opt-list"></div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:.4rem">
             <span id="wheel-opt-count" style="font-size:.68rem;color:var(--text-dim)">0 options</span>
-            <button onclick="clearWheelOptions()"
-              style="padding:.35rem .7rem;border-radius:8px;border:1px solid var(--border);background:var(--surface);
-                     color:var(--text-dim);cursor:pointer;font-size:.7rem">✕ Clear All</button>
+            <div style="display:flex;gap:.4rem">
+              <button onclick="shuffleWheelOptions()"
+                style="padding:.35rem .7rem;border-radius:8px;border:1px solid var(--border);background:var(--surface);
+                       color:var(--text-dim);cursor:pointer;font-size:.7rem">🔀 Shuffle</button>
+              <button onclick="clearWheelOptions()"
+                style="padding:.35rem .7rem;border-radius:8px;border:1px solid var(--border);background:var(--surface);
+                       color:var(--text-dim);cursor:pointer;font-size:.7rem">✕ Clear All</button>
+            </div>
           </div>
         </div>
-      </div>
-
-      <div class="loop-row">
-        <label class="loop-label">
-          <input type="checkbox" id="wheel-no-repeat-chk">
-          <span class="loop-track"><span class="loop-knob"></span></span>
-          Remove winner after each spin
-        </label>
       </div>
     </div>
 
@@ -1045,12 +1057,9 @@
     <canvas id="wheel-canvas" width="440" height="440" onclick="spinWheel()"></canvas>
   </div>
 
-  <div id="wheel-result">
-    <div class="done-title" id="wheel-result-text" style="font-size:clamp(1.4rem,5vw,2.4rem)"></div>
-  </div>
-
   <div class="ctrl-row" style="margin-top:1.25rem">
     <button class="ctrl-btn" onclick="resetWheel()" title="Restore all options">↺</button>
+    <button class="ctrl-btn" onclick="shuffleWheelOptions()" title="Shuffle positions">🔀</button>
     <button class="ctrl-btn big" id="wheel-spin-btn" onclick="spinWheel()" title="Spin">🎡</button>
     <button class="ctrl-btn" onclick="goSetup('wheels')" title="Settings">⚙</button>
   </div>
@@ -1150,6 +1159,22 @@
             pointer-events:none;overflow:hidden">
   <img id="celebration-img" src="assets/celebration.png"
        style="max-width:80vw;max-height:80vh;max-height:80dvh;opacity:0;filter:drop-shadow(0 0 40px rgba(0,0,0,.5))">
+</div>
+
+<!-- Wheel spin result — asks whether to keep or remove the winning entry.
+     No click-to-close: an explicit choice is required, unlike the other overlays. -->
+<div id="wheel-result-overlay"
+     style="display:none;position:fixed;inset:0;z-index:95;flex-direction:column;
+            align-items:center;justify-content:center;background:rgba(6,6,15,.92);
+            padding:2rem;text-align:center">
+  <div style="font-size:.7rem;letter-spacing:.2em;color:var(--text-dim);text-transform:uppercase;margin-bottom:.75rem">
+    Winner
+  </div>
+  <div class="done-title" id="wheel-result-overlay-text" style="font-size:clamp(1.8rem,7vw,3.2rem)"></div>
+  <div style="display:flex;gap:.75rem;margin-top:2rem;flex-wrap:wrap;justify-content:center">
+    <button class="done-btn" onclick="resolveWheelResult(true)">✓ Keep On Wheel</button>
+    <button class="done-btn alt" onclick="resolveWheelResult(false)">✕ Remove From Wheel</button>
+  </div>
 </div>
 
 <!-- ═══════════════════════════════
@@ -2032,6 +2057,8 @@ function goSetup(tab) {
   document.getElementById('fullscreen-btn').classList.remove('show', 'prominent');
   document.getElementById('float-vol').classList.remove('show');
   document.getElementById('screen-wheel').style.display = 'none';
+  document.getElementById('wheel-result-overlay').style.display = 'none';
+  wheelResultIndex = null;
   leaveVoteScreens();
   switchTab(tab || 'countdown');
 }
@@ -2133,11 +2160,12 @@ function renderVoteImageGrid() {
 // ══════════════════════════════════════════
 //  WHEELS
 // ══════════════════════════════════════════
-let wheelOptions  = [];    // [{ text, color }] -- live set, shrinks in no-repeat mode
-let wheelSnapshot = [];    // full set as it was when the wheel screen opened, for Reset
-let wheelRotation = 0;     // accumulated CSS rotation (deg) -- never reset, so
-                            // spins always move forward with no backward snap
-let wheelSpinning = false;
+let wheelOptions     = [];   // [{ text, color }] -- live set, can shrink via "Remove From Wheel"
+let wheelSnapshot    = [];   // full set as it was when the wheel screen opened, for Reset
+let wheelRotation    = 0;    // accumulated CSS rotation (deg) -- never reset, so
+                              // spins always move forward with no backward snap
+let wheelSpinning    = false;
+let wheelResultIndex = null; // index awaiting a Keep/Remove decision in the result overlay
 
 const WHEEL_PRESETS = {
   d6:    { name: '1 – 6',    options: ['1', '2', '3', '4', '5', '6'] },
@@ -2196,8 +2224,17 @@ function removeWheelOption(i) {
   renderWheelOptions();
 }
 
+// Colour/text edits update data + redraw the canvases directly, without
+// re-rendering the options list -- re-rendering would rebuild the input
+// elements and steal focus out from under whoever's mid-edit.
 function setWheelOptionColor(i, color) {
   if (wheelOptions[i]) wheelOptions[i].color = color;
+  refreshWheelViews();
+}
+
+function setWheelOptionText(i, text) {
+  if (wheelOptions[i]) wheelOptions[i].text = text;
+  refreshWheelViews();
 }
 
 function clearWheelOptions() {
@@ -2207,6 +2244,15 @@ function clearWheelOptions() {
   renderWheelOptions();
 }
 
+function shuffleWheelOptions() {
+  for (let i = wheelOptions.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [wheelOptions[i], wheelOptions[j]] = [wheelOptions[j], wheelOptions[i]];
+  }
+  renderWheelOptions();
+  refreshWheelViews();
+}
+
 function renderWheelOptions() {
   const list = document.getElementById('wheel-opt-list');
   list.innerHTML = wheelOptions.map((o, i) => `
@@ -2214,8 +2260,9 @@ function renderWheelOptions() {
       <input type="color" value="${o.color}" onchange="setWheelOptionColor(${i}, this.value)" title="Pick a colour"
         style="width:28px;height:28px;border:1px solid var(--border);border-radius:6px;padding:0;cursor:pointer;
                flex-shrink:0;background:none">
-      <span style="flex:1;font-size:.85rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;
-                   white-space:nowrap">${escapeHtml(o.text)}</span>
+      <input type="text" value="${escapeHtml(o.text)}" oninput="setWheelOptionText(${i}, this.value)"
+        style="flex:1;min-width:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;
+               color:var(--text);padding:.4rem .6rem;font-size:.85rem;font-family:inherit">
       <button onclick="removeWheelOption(${i})" title="Remove"
         style="width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--surface);
                color:var(--text-dim);cursor:pointer;font-size:.7rem;flex-shrink:0">✕</button>
@@ -2223,15 +2270,16 @@ function renderWheelOptions() {
   document.getElementById('wheel-opt-count').textContent =
     wheelOptions.length + (wheelOptions.length === 1 ? ' option' : ' options');
   updateTabButtons();
+  refreshWheelViews();
 }
 
-function drawWheel() {
-  const canvas = document.getElementById('wheel-canvas');
+function drawWheelOnCanvas(canvas, options) {
+  if (!canvas) return;
   const ctx = canvas.getContext('2d');
   const w = canvas.width, h = canvas.height;
   const cx = w / 2, cy = h / 2, r = w / 2 - 4;
   ctx.clearRect(0, 0, w, h);
-  const n = wheelOptions.length;
+  const n = options.length;
   if (!n) return;
   const segAngle = (2 * Math.PI) / n;
   for (let i = 0; i < n; i++) {
@@ -2241,7 +2289,7 @@ function drawWheel() {
     ctx.moveTo(cx, cy);
     ctx.arc(cx, cy, r, start, end);
     ctx.closePath();
-    ctx.fillStyle = wheelOptions[i].color;
+    ctx.fillStyle = options[i].color;
     ctx.fill();
     ctx.strokeStyle = 'rgba(6,6,15,.4)';
     ctx.lineWidth = 2;
@@ -2252,9 +2300,9 @@ function drawWheel() {
     ctx.rotate(start + segAngle / 2);
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = textColorFor(wheelOptions[i].color);
+    ctx.fillStyle = textColorFor(options[i].color);
     ctx.font = '600 15px Inter, sans-serif';
-    const label = wheelOptions[i].text.length > 18 ? wheelOptions[i].text.slice(0, 17) + '…' : wheelOptions[i].text;
+    const label = options[i].text.length > 18 ? options[i].text.slice(0, 17) + '…' : options[i].text;
     ctx.fillText(label, r - 14, 0);
     ctx.restore();
   }
@@ -2267,6 +2315,13 @@ function drawWheel() {
   ctx.stroke();
 }
 
+// Keeps the setup screen's live preview and the spin screen's wheel (when
+// open) both in sync with the current wheelOptions -- called on every edit.
+function refreshWheelViews() {
+  drawWheelOnCanvas(document.getElementById('wheel-preview-canvas'), wheelOptions);
+  drawWheelOnCanvas(document.getElementById('wheel-canvas'), wheelOptions);
+}
+
 function startWheel() {
   if (wheelOptions.length < 2) { alert('Add at least 2 options to spin the wheel.'); return; }
   wheelSnapshot = wheelOptions.map(o => ({ ...o }));
@@ -2276,12 +2331,11 @@ function startWheel() {
   document.getElementById('screen-wheel').style.display = 'flex';
   document.getElementById('fullscreen-btn').classList.add('show');
   document.getElementById('float-vol').classList.add('show');
-  document.getElementById('wheel-result').classList.remove('animate');
-  document.getElementById('wheel-result-text').textContent = '';
+  document.getElementById('wheel-result-overlay').style.display = 'none';
   wheelRotation = 0;
   document.getElementById('wheel-canvas').style.transition = 'none';
   document.getElementById('wheel-canvas').style.transform = 'rotate(0deg)';
-  drawWheel();
+  refreshWheelViews();
   requestAnimationFrame(() => {
     document.getElementById('wheel-canvas').style.transition = '';
   });
@@ -2291,7 +2345,7 @@ function startWheel() {
 function spinWheel() {
   if (wheelSpinning || wheelOptions.length < 2) return;
   wheelSpinning = true;
-  document.getElementById('wheel-result').classList.remove('animate');
+  document.getElementById('wheel-result-overlay').style.display = 'none';
 
   const n = wheelOptions.length;
   const winnerIndex = Math.floor(Math.random() * n);
@@ -2317,27 +2371,35 @@ function spinWheel() {
 function onWheelLanded(winnerIndex) {
   const winner = wheelOptions[winnerIndex];
   if (!winner) return;
+  wheelResultIndex = winnerIndex;
   startConfetti();
   setTimeout(stopConfetti, 3500);
-  const el = document.getElementById('wheel-result');
-  document.getElementById('wheel-result-text').textContent = '🎉 ' + winner.text;
-  el.classList.remove('animate');
-  void el.offsetWidth;
-  el.classList.add('animate');
 
-  if (document.getElementById('wheel-no-repeat-chk').checked) {
-    wheelOptions.splice(winnerIndex, 1);
-    drawWheel();
-  }
+  const overlay = document.getElementById('wheel-result-overlay');
+  document.getElementById('wheel-result-overlay-text').textContent = winner.text;
+  overlay.classList.remove('animate');
+  void overlay.offsetWidth;
+  overlay.style.display = 'flex';
+  overlay.classList.add('animate');
 }
 
-// Restores whichever options "no repeat" mode has removed, back to the full
-// set this wheel screen was opened with.
+// Called by the Keep/Remove buttons in the result overlay.
+function resolveWheelResult(keep) {
+  document.getElementById('wheel-result-overlay').style.display = 'none';
+  if (!keep && wheelResultIndex !== null) {
+    wheelOptions.splice(wheelResultIndex, 1);
+    refreshWheelViews();
+  }
+  wheelResultIndex = null;
+}
+
+// Restores whichever options have been removed, back to the full set this
+// wheel screen was opened with.
 function resetWheel() {
   wheelOptions = wheelSnapshot.map(o => ({ ...o }));
-  drawWheel();
-  document.getElementById('wheel-result').classList.remove('animate');
-  document.getElementById('wheel-result-text').textContent = '';
+  refreshWheelViews();
+  document.getElementById('wheel-result-overlay').style.display = 'none';
+  wheelResultIndex = null;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
