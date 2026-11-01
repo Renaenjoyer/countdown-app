@@ -941,6 +941,9 @@
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:.4rem">
             <span id="wheel-opt-count" style="font-size:.68rem;color:var(--text-dim)">0 options</span>
             <div style="display:flex;gap:.4rem">
+              <button id="wheel-reload-preset-btn" onclick="reloadWheelPreset()" style="display:none;
+                padding:.35rem .7rem;border-radius:8px;border:1px solid var(--accent2);background:rgba(123,47,255,.1);
+                color:var(--accent2);cursor:pointer;font-size:.7rem">↺ Reload Preset</button>
               <button onclick="shuffleWheelOptions()"
                 style="padding:.35rem .7rem;border-radius:8px;border:1px solid var(--border);background:var(--surface);
                        color:var(--text-dim);cursor:pointer;font-size:.7rem">🔀 Shuffle</button>
@@ -1172,6 +1175,9 @@
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:.5rem">
         <span id="wheel-drawer-count" style="font-size:.66rem;color:var(--text-dim)">0 options</span>
         <div style="display:flex;gap:.4rem">
+          <button id="wheel-drawer-reload-preset-btn" onclick="reloadWheelPreset()" title="Reload Preset" style="display:none;
+            padding:.3rem .6rem;border-radius:8px;border:1px solid var(--accent2);background:rgba(123,47,255,.1);
+            color:var(--accent2);cursor:pointer;font-size:.66rem">↺</button>
           <button onclick="shuffleWheelOptions()"
             style="padding:.3rem .6rem;border-radius:8px;border:1px solid var(--border);background:var(--surface);
                    color:var(--text-dim);cursor:pointer;font-size:.66rem">🔀</button>
@@ -2312,6 +2318,7 @@ let wheelRotation    = 0;    // accumulated CSS rotation (deg) -- never reset, s
                               // spins always move forward with no backward snap
 let wheelSpinning    = false;
 let wheelResultIndex = null; // index awaiting a Keep/Remove decision in the result overlay
+let currentPresetKey = null; // which WHEEL_PRESETS entry (if any) the current wheel was loaded from
 let wheelDrawerOpen  = false;
 
 // Blocked while spinning: the in-flight spin's winnerIndex is a plain array
@@ -2402,7 +2409,20 @@ function loadWheelPreset(key) {
     return { text, color: wheelColorFor(i), weight };
   });
   document.getElementById('wheel-title').value = p.name;
+  currentPresetKey = key;
   renderWheelOptions();
+}
+
+// Available whenever the current wheel originated from a preset (even after
+// edits, removals, or re-opening the wheel screen since) -- re-fetches that
+// preset's pristine definition from scratch, discarding every change made
+// to it. Separate from the spin screen's "Reset" button, which only
+// remembers the snapshot from when that screen was last opened.
+function reloadWheelPreset() {
+  const p = WHEEL_PRESETS[currentPresetKey];
+  if (!p) return;
+  if (!confirm(`Reload the original "${p.name}" preset? This discards any changes you've made to it.`)) return;
+  loadWheelPreset(currentPresetKey);
 }
 
 // Clicking the (possibly empty) preview wheel jumps straight to adding an
@@ -2476,6 +2496,7 @@ function clearWheelOptions() {
   if (!wheelOptions.length) return;
   if (!confirm('Clear all wheel options?')) return;
   wheelOptions = [];
+  currentPresetKey = null; // explicit full clear -- no longer "from" any preset
   renderWheelOptions();
 }
 
@@ -2523,6 +2544,10 @@ function renderWheelOptions() {
   const drawerCount = document.getElementById('wheel-drawer-count');
   if (drawerList)  drawerList.innerHTML = rowsHtml;
   if (drawerCount) drawerCount.textContent = countText;
+
+  const showReload = currentPresetKey && WHEEL_PRESETS[currentPresetKey] ? 'inline-block' : 'none';
+  document.getElementById('wheel-reload-preset-btn').style.display = showReload;
+  document.getElementById('wheel-drawer-reload-preset-btn').style.display = showReload;
 
   updateTabButtons();
   refreshWheelViews();
