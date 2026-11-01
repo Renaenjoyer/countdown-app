@@ -1153,7 +1153,7 @@
 
   <div class="wheel-stage">
     <div class="wheel-pointer">▼</div>
-    <canvas id="wheel-canvas" width="440" height="440" onclick="spinWheel()"></canvas>
+    <canvas id="wheel-canvas" width="440" height="440" onclick="onWheelCanvasClick()"></canvas>
 
     <button id="wheel-drawer-toggle" onclick="toggleWheelDrawer()" title="Edit entries">▶</button>
     <div id="wheel-drawer">
@@ -1186,7 +1186,7 @@
   <div class="ctrl-row" style="margin-top:1.25rem">
     <button class="ctrl-btn" onclick="resetWheel()" title="Restore all options">↺</button>
     <button class="ctrl-btn" onclick="shuffleWheelOptions()" title="Shuffle positions">🔀</button>
-    <button class="ctrl-btn big" id="wheel-spin-btn" onclick="spinWheel()" title="Spin">🎡</button>
+    <button class="ctrl-btn big" id="wheel-spin-btn" onclick="onWheelCanvasClick()" title="Spin">🎡</button>
     <button class="ctrl-btn" onclick="goSetup('wheels')" title="Settings">⚙</button>
   </div>
 
@@ -2592,6 +2592,19 @@ function startWheel() {
     document.getElementById('wheel-canvas').style.transition = '';
   });
   startMusic();
+}
+
+// Shared by the wheel canvas and the spin button -- if there aren't enough
+// options to spin (e.g. removed down below 2 via the drawer), clicking
+// either one opens the entries box and focuses its add field instead of
+// just silently doing nothing.
+function onWheelCanvasClick() {
+  if (wheelOptions.length < 2) {
+    if (!wheelDrawerOpen) toggleWheelDrawer();
+    document.getElementById('wheel-drawer-opt-input').focus();
+    return;
+  }
+  spinWheel();
 }
 
 function spinWheel() {
