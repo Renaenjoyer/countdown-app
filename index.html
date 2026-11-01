@@ -1316,7 +1316,7 @@
             align-items:center;justify-content:center;background:rgba(6,6,15,.94);
             padding:1.5rem;text-align:center">
   <div style="font-size:.8rem;color:var(--text-dim);margin-bottom:1rem;max-width:460px;line-height:1.5">
-    Click or drag on the image to choose what stays in view when it's cropped to fill the screen.
+    Click or drag to move the highlighted area — that's what stays visible; the rest gets cropped away.
   </div>
   <div id="bg-crop-stage"
        onpointerdown="bgCropPointerDown(event)" onpointermove="bgCropPointerMove(event)"
@@ -1325,10 +1325,10 @@
               border-radius:12px;overflow:hidden;border:1px solid var(--border);touch-action:none;line-height:0">
     <img id="bg-crop-img" draggable="false"
          style="display:block;max-width:90vw;max-height:60vh;max-height:60dvh;pointer-events:none;user-select:none">
-    <div id="bg-crop-marker"
-         style="position:absolute;top:50%;left:50%;width:22px;height:22px;border-radius:50%;
-                border:3px solid var(--accent);box-shadow:0 0 0 2px rgba(6,6,15,.85), 0 0 14px var(--accent);
-                transform:translate(-50%,-50%);pointer-events:none"></div>
+    <div id="bg-crop-box"
+         style="position:absolute;border:2px solid var(--accent);border-radius:2px;
+                box-shadow:0 0 0 9999px rgba(6,6,15,.72), 0 0 16px rgba(0,212,255,.5);
+                pointer-events:none"></div>
   </div>
   <div style="display:flex;gap:.75rem;margin-top:1.5rem;flex-wrap:wrap;justify-content:center">
     <button class="done-btn" onclick="closeBgCropModal()">✓ Done</button>
@@ -3156,14 +3156,52 @@ function setBgFit(mode) {
   applyBgStyle();
 }
 
-// Crop picker: click or drag anywhere on the full image to set the focal
-// point that stays in view once the background is cropped to fill the
-// screen -- a continuous pick rather than a fixed 9-point grid.
+// Crop picker: shows the real "will this get cropped off" region as a
+// highlighted box (rest of the image dimmed), sized to approximate the
+// current browser window's aspect ratio -- the same math CSS itself uses
+// for `background-size: cover`, just visualized. Click or drag the box
+// anywhere on the image; the pointer sets the box's desired center,
+// clamped so it never goes outside the image.
+let bgCropBoxW = 0, bgCropBoxH = 0;
+
 function openBgCropModal() {
   if (!bgObjectUrl) return;
-  document.getElementById('bg-crop-img').src = bgObjectUrl;
-  updateBgCropMarker();
+  const img = document.getElementById('bg-crop-img');
+  img.onload = () => { computeBgCropBoxSize(); updateBgCropBox(); };
+  img.src = bgObjectUrl;
   document.getElementById('bg-crop-modal').style.display = 'flex';
+  // img.onload won't refire if src is unchanged from last time (re-opening
+  // without picking a new image), so compute immediately if already loaded.
+  if (img.complete && img.naturalWidth) { computeBgCropBoxSize(); updateBgCropBox(); }
+}
+
+function computeBgCropBoxSize() {
+  const img = document.getElementById('bg-crop-img');
+  const imgW = img.clientWidth, imgH = img.clientHeight;
+  if (!imgW || !imgH) return;
+  const viewportAspect = window.innerWidth / window.innerHeight;
+  const imageAspect = imgW / imgH;
+  if (imageAspect > viewportAspect) {
+    // Image is relatively wider than the screen -- height fits, sides crop.
+    bgCropBoxH = imgH;
+    bgCropBoxW = imgH * viewportAspect;
+  } else {
+    // Image is relatively taller than the screen -- width fits, top/bottom crop.
+    bgCropBoxW = imgW;
+    bgCropBoxH = imgW / viewportAspect;
+  }
+}
+
+function updateBgCropBox() {
+  const img = document.getElementById('bg-crop-img');
+  const imgW = img.clientWidth, imgH = img.clientHeight;
+  const maxLeft = Math.max(0, imgW - bgCropBoxW);
+  const maxTop  = Math.max(0, imgH - bgCropBoxH);
+  const box = document.getElementById('bg-crop-box');
+  box.style.left   = (maxLeft * (bgPosXPct / 100)) + 'px';
+  box.style.top    = (maxTop  * (bgPosYPct / 100)) + 'px';
+  box.style.width  = bgCropBoxW + 'px';
+  box.style.height = bgCropBoxH + 'px';
 }
 
 function closeBgCropModal() {
@@ -3174,13 +3212,7 @@ function closeBgCropModal() {
 function resetBgCropPosition() {
   bgPosXPct = 50; bgPosYPct = 50;
   applyBgStyle();
-  updateBgCropMarker();
-}
-
-function updateBgCropMarker() {
-  const marker = document.getElementById('bg-crop-marker');
-  marker.style.left = bgPosXPct + '%';
-  marker.style.top  = bgPosYPct + '%';
+  updateBgCropBox();
 }
 
 function bgCropPointerDown(e) {
@@ -3199,13 +3231,25 @@ function bgCropPointerUp() {
 }
 
 function handleBgCropPointer(e) {
+  // #bg-crop-box is positioned relative to #bg-crop-stage (its containing
+  // block), not the <img> -- use the stage's rect so pointer math lines up
+  // with where the box actually renders, since the stage's own border would
+  // otherwise offset the two by a pixel or two.
+  const img = document.getElementById('bg-crop-img');
   const rect = document.getElementById('bg-crop-stage').getBoundingClientRect();
-  let x = ((e.clientX - rect.left) / rect.width) * 100;
-  let y = ((e.clientY - rect.top) / rect.height) * 100;
-  bgPosXPct = Math.max(0, Math.min(100, Math.round(x)));
-  bgPosYPct = Math.max(0, Math.min(100, Math.round(y)));
+  const imgW = img.clientWidth, imgH = img.clientHeight;
+  const maxLeft = Math.max(0, imgW - bgCropBoxW);
+  const maxTop  = Math.max(0, imgH - bgCropBoxH);
+  // Pointer sets the desired center of the box, clamped to stay fully
+  // within the image bounds.
+  let left = (e.clientX - rect.left) - bgCropBoxW / 2;
+  let top  = (e.clientY - rect.top)  - bgCropBoxH / 2;
+  left = Math.max(0, Math.min(maxLeft, left));
+  top  = Math.max(0, Math.min(maxTop, top));
+  bgPosXPct = maxLeft ? (left / maxLeft) * 100 : 50;
+  bgPosYPct = maxTop  ? (top  / maxTop)  * 100 : 50;
   applyBgStyle();
-  updateBgCropMarker();
+  updateBgCropBox();
 }
 
 function clearBgImage() {
