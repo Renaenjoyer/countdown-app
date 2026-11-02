@@ -1430,6 +1430,28 @@ const FIREBASE_CONFIG = {
   appId: "1:657863658331:web:ea69e12f2e3675d133287e",
 };
 
+// Voting timers compare an absolute endsAt (written by the host's device) against
+// each voter's own device clock, so a device with a wrong system clock sees the
+// countdown as already expired (0:00) on load. clockOffsetMs corrects for that by
+// comparing the local clock against the Date header of a same-origin HTTP response
+// (an accurate, unspoofable "real" time), and nowMs() is used everywhere voting
+// timers touch the clock -- both when the host computes endsAt and when any device
+// ticks down toward it -- so a skewed clock on either side is corrected out.
+let clockOffsetMs = 0;
+function nowMs() { return Date.now() + clockOffsetMs; }
+async function calibrateClock() {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch(location.href, { method: 'HEAD', cache: 'no-store', signal: controller.signal });
+    clearTimeout(timeout);
+    const serverMs = Date.parse(res.headers.get('date'));
+    if (serverMs) clockOffsetMs = serverMs - Date.now();
+  } catch { /* offline or blocked -- fall back to the device's own clock */ }
+}
+const clockCalibration = calibrateClock(); // kicked off immediately so it's usually
+                                            // already resolved by the time it's awaited
+
 let db            = null;
 let voteImages    = [];   // { dataUrl } staged locally before "Start Voting"
 let voterImages   = [];   // images loaded for the voter view, with live vote counts
@@ -1548,7 +1570,7 @@ function startVoteRingTicker(endsAtMs, totalSecs, prefix, onZero) {
   clearInterval(voteTicker);
   voteLocked = false;
   function tick() {
-    const remaining = Math.max(0, Math.round((endsAtMs - Date.now()) / 1000));
+    const remaining = Math.max(0, Math.round((endsAtMs - nowMs()) / 1000));
     const frac = totalSecs > 0 ? remaining / totalSecs : 0;
     document.getElementById('time-big-' + prefix).innerHTML = fmtHtml(remaining);
     updateRingEl(prefix, 1 - frac);
@@ -3211,7 +3233,8 @@ async function startVoting() {
 
   const title  = document.getElementById('vote-title').value.trim() || 'VOTE NOW';
   const pollId = genPollId();
-  const endsAtMs   = Date.now() + durationSecs * 1000;
+  await clockCalibration; // correct this device's clock before stamping the poll's end time
+  const endsAtMs   = nowMs() + durationSecs * 1000;
   const expireAtMs = endsAtMs + 60 * 60 * 1000; // auto-deleted ~1hr after voting ends, not from creation --
                                                  // a long-duration vote must never expire before it's even over
   const expireAt   = firebase.firestore.Timestamp.fromMillis(expireAtMs);
@@ -3366,7 +3389,7 @@ function enterVoterMode(pollId) {
   initRing('v');
 
   const pollRef = db.collection('polls').doc(pollId);
-  pollRef.get().then(doc => {
+  pollRef.get().then(async doc => {
     if (!doc.exists) {
       document.getElementById('v-title-lbl').textContent = 'Poll not found';
       document.getElementById('v-status').textContent = 'This voting link is invalid or has expired.';
@@ -3374,6 +3397,7 @@ function enterVoterMode(pollId) {
     }
     const data = doc.data();
     document.getElementById('v-title-lbl').textContent = data.title;
+    await clockCalibration; // correct this device's clock before judging how much time is left
     const endsAtMs = data.endsAt.toMillis();
 
     updateVoterStatus();
