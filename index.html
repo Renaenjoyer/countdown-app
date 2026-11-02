@@ -931,6 +931,9 @@
               <button id="wheel-reload-preset-btn" onclick="reloadWheelPreset()" style="display:none;
                 padding:.35rem .7rem;border-radius:8px;border:1px solid var(--accent2);background:rgba(123,47,255,.1);
                 color:var(--accent2);cursor:pointer;font-size:.7rem">↺ Reload Preset</button>
+              <button onclick="saveCurrentWheel()" title="Save this wheel on this device so you can reload it later"
+                style="padding:.35rem .7rem;border-radius:8px;border:1px solid var(--accent2);background:rgba(123,47,255,.1);
+                       color:var(--accent2);cursor:pointer;font-size:.7rem">💾 Save</button>
               <button onclick="shuffleWheelOptions()"
                 style="padding:.35rem .7rem;border-radius:8px;border:1px solid var(--border);background:var(--surface);
                        color:var(--text-dim);cursor:pointer;font-size:.7rem">🔀 Shuffle</button>
@@ -2748,10 +2751,80 @@ function textColorFor(hex) {
 
 function renderWheelPresets() {
   const row = document.getElementById('wheel-preset-row');
-  row.innerHTML = Object.entries(WHEEL_PRESETS).map(([key, p]) => `
+  const cleanBtn = `
+    <button onclick="startCleanWheel()" title="Start from a blank wheel"
+      style="padding:.5rem .9rem;border-radius:10px;border:1px dashed var(--border);background:var(--surface);
+             color:var(--text-dim);cursor:pointer;font-size:.78rem">🧹 Clean Wheel</button>`;
+  const builtIn = Object.entries(WHEEL_PRESETS).map(([key, p]) => `
     <button onclick="loadWheelPreset('${key}')"
       style="padding:.5rem .9rem;border-radius:10px;border:1px solid var(--border);background:var(--surface);
              color:var(--text-dim);cursor:pointer;font-size:.78rem">${escapeHtml(p.name)}</button>`).join('');
+  const savedHtml = getSavedWheels().map(w => `
+    <span style="display:inline-flex;border-radius:10px;overflow:hidden;border:1px solid var(--accent2)">
+      <button onclick="loadSavedWheel('${w.id}')" title="Load your saved wheel"
+        style="padding:.5rem .7rem;border:none;background:rgba(123,47,255,.1);
+               color:var(--accent2);cursor:pointer;font-size:.78rem">⭐ ${escapeHtml(w.name)}</button>
+      <button onclick="deleteSavedWheel('${w.id}', event)" title="Delete saved wheel"
+        style="padding:.5rem .5rem;border:none;border-left:1px solid var(--accent2);background:rgba(123,47,255,.1);
+               color:var(--accent2);cursor:pointer;font-size:.7rem">✕</button>
+    </span>`).join('');
+  row.innerHTML = cleanBtn + builtIn + savedHtml;
+}
+
+// Wheels saved locally via "💾 Save" below -- plain localStorage, so they
+// persist on this device far longer than the few hours users need them for,
+// with no backend/Firebase involved (same local-only model as the countdown).
+const WHEEL_SAVE_KEY = 'wheelSavedPresets';
+
+function getSavedWheels() {
+  try { return JSON.parse(localStorage.getItem(WHEEL_SAVE_KEY) || '[]'); }
+  catch { return []; }
+}
+
+function persistSavedWheels(list) {
+  try { localStorage.setItem(WHEEL_SAVE_KEY, JSON.stringify(list)); } catch {}
+}
+
+function saveCurrentWheel() {
+  if (!wheelOptions.length) { alert('Add some options before saving.'); return; }
+  const titleVal = document.getElementById('wheel-title').value.trim();
+  const name = prompt('Save this wheel as:', titleVal || 'My Wheel');
+  if (!name || !name.trim()) return;
+  const trimmed = name.trim();
+  const saved = getSavedWheels();
+  const existing = saved.find(w => w.name === trimmed);
+  const entry = { id: existing ? existing.id : 'w' + Date.now(), name: trimmed, title: titleVal, options: wheelOptions };
+  if (existing) Object.assign(existing, entry);
+  else saved.push(entry);
+  persistSavedWheels(saved);
+  renderWheelPresets();
+}
+
+function loadSavedWheel(id) {
+  const w = getSavedWheels().find(s => s.id === id);
+  if (!w) return;
+  wheelOptions = w.options.map(o => ({ text: o.text, color: o.color, weight: o.weight || 1 }));
+  document.getElementById('wheel-title').value = w.title || '';
+  currentPresetKey = null;
+  renderWheelOptions();
+}
+
+function deleteSavedWheel(id, event) {
+  if (event) event.stopPropagation();
+  const w = getSavedWheels().find(s => s.id === id);
+  if (!w) return;
+  if (!confirm(`Delete saved wheel "${w.name}"?`)) return;
+  persistSavedWheels(getSavedWheels().filter(s => s.id !== id));
+  renderWheelPresets();
+}
+
+// Quick "start fresh" pick in the preset row -- same no-confirm behaviour as
+// clicking any other preset (they already overwrite without asking).
+function startCleanWheel() {
+  wheelOptions = [];
+  document.getElementById('wheel-title').value = '';
+  currentPresetKey = null;
+  renderWheelOptions();
 }
 
 function loadWheelPreset(key) {
